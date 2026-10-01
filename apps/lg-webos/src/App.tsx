@@ -1,9 +1,11 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
+  memo,
   type FormEvent,
   type ReactNode,
 } from "react";
@@ -36,6 +38,7 @@ import {
 } from "lucide-react";
 import { getLgDeviceIdentity } from "./lib/webos";
 import { useSpatialNavigation } from "./lib/spatial-navigation";
+import { CHANNEL_ROW_HEIGHT, virtualChannelRange } from "./lib/virtual-range";
 import "./App.css";
 
 type Mode = "loading" | "activation" | "home";
@@ -63,7 +66,8 @@ type SeriesCollection = {
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:4100";
 const TOKEN_KEY = "lc_play_device_token";
-const PAGE_SIZE = 40;
+const PAGE_SIZE = 24;
+const clockFormatter = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
 async function request<T>(path: string, init?: RequestInit, token?: string): Promise<T> {
   const response = await fetch(`${API_URL}/api/${path}`, {
@@ -88,10 +92,13 @@ function App() {
   const [catalog, setCatalog] = useState<DeviceCatalog | null>(() => demo ? createDemoCatalog() : null);
   const [catalogLoading, setCatalogLoading] = useState(!demo);
   const [catalogError, setCatalogError] = useState("");
+  const kindRef = useRef<CatalogKind>("LIVE");
+  const loadedKindRef = useRef<CatalogKind | null>(null);
+  const catalogRequestRef = useRef<AbortController | null>(null);
 
   useSpatialNavigation(mode !== "loading");
 
-  const loadCatalog = useCallback(async () => {
+  const loadCatalog = useCallback(async (kind = kindRef.current, background = false) => {
     if (demo) {
       setCatalog(createDemoCatalog());
       setCatalogLoading(false);
@@ -100,14 +107,29 @@ function App() {
     }
     const token = localStorage.getItem(TOKEN_KEY);
     if (!token) return;
+    if (background && catalogRequestRef.current) return;
+    catalogRequestRef.current?.abort();
+    const controller = new AbortController();
+    catalogRequestRef.current = controller;
+    if (loadedKindRef.current !== kind) {
+      setCatalog(null);
+      loadedKindRef.current = null;
+    }
     setCatalogLoading(true);
     setCatalogError("");
     try {
-      setCatalog(await request<DeviceCatalog>("v1/device/catalog", undefined, token));
+      const nextCatalog = await request<DeviceCatalog>(`v1/device/catalog?kind=${kind}`, { signal: controller.signal }, token);
+      if (!controller.signal.aborted) {
+        loadedKindRef.current = kind;
+        setCatalog(nextCatalog);
+      }
     } catch (caught) {
-      setCatalogError(caught instanceof Error ? caught.message : "Não foi possível carregar o catálogo.");
+      if (!controller.signal.aborted) setCatalogError(caught instanceof Error ? caught.message : "Não foi possível carregar o catálogo.");
     } finally {
-      setCatalogLoading(false);
+      if (catalogRequestRef.current === controller) {
+        catalogRequestRef.current = null;
+        setCatalogLoading(false);
+      }
     }
   }, [demo]);
 
@@ -121,17 +143,26 @@ function App() {
       const nextConfiguration = await request<Configuration>("v1/device/configuration", undefined, token);
       setConfiguration(nextConfiguration);
       if (nextConfiguration.playlist) {
-        setCatalog(await request<DeviceCatalog>("v1/device/catalog", undefined, token));
+        await loadCatalog();
       } else {
+        catalogRequestRef.current?.abort();
+        loadedKindRef.current = null;
         setCatalog(null);
         setCatalogError("Nenhuma fonte está vinculada a este dispositivo.");
       }
     } catch (caught) {
       setCatalogError(caught instanceof Error ? caught.message : "Não foi possível atualizar o conteúdo.");
     } finally {
-      setCatalogLoading(false);
+      if (!catalogRequestRef.current) setCatalogLoading(false);
     }
   }, [demo, loadCatalog]);
+
+  const changeCatalogKind = useCallback((kind: CatalogKind) => {
+    kindRef.current = kind;
+    if (!demo && loadedKindRef.current !== kind) void loadCatalog(kind);
+  }, [demo, loadCatalog]);
+
+  useEffect(() => () => catalogRequestRef.current?.abort(), []);
 
   useEffect(() => {
     if (demo) return;
@@ -167,7 +198,9 @@ function App() {
     };
     heartbeat();
     const heartbeatTimer = window.setInterval(heartbeat, 120_000);
-    const catalogTimer = window.setInterval(() => void loadCatalog(), 5 * 60_000);
+    const catalogTimer = window.setInterval(() => {
+      if (!document.hidden) void loadCatalog(kindRef.current, true);
+    }, 5 * 60_000);
     return () => {
       window.clearInterval(heartbeatTimer);
       window.clearInterval(catalogTimer);
@@ -206,7 +239,11 @@ function App() {
       error={catalogError}
       demo={demo}
       onRefresh={refreshAll}
+      onCatalogKind={changeCatalogKind}
       onDisconnect={() => {
+        catalogRequestRef.current?.abort();
+        loadedKindRef.current = null;
+        kindRef.current = "LIVE";
         localStorage.removeItem(TOKEN_KEY);
         setConfiguration(null);
         setCatalog(null);
@@ -329,6 +366,7 @@ function PlayerExperience({
   error,
   demo,
   onRefresh,
+  onCatalogKind,
   onDisconnect,
 }: {
   configuration: Configuration | null;
@@ -337,6 +375,7 @@ function PlayerExperience({
   error: string;
   demo: boolean;
   onRefresh: () => Promise<void>;
+  onCatalogKind: (kind: CatalogKind) => void;
   onDisconnect: () => void;
 }) {
   const [view, setView] = useState<View>("LIVE");
@@ -346,6 +385,7 @@ function PlayerExperience({
   const [selectedSeries, setSelectedSeries] = useState<SeriesCollection | null>(null);
 
   const openView = (nextView: View) => {
+    if (nextView === "LIVE" || nextView === "MOVIE" || nextView === "SERIES") onCatalogKind(nextView);
     setGroup("Todos");
     setPage(0);
     setSelectedSeries(null);
@@ -562,21 +602,33 @@ function LiveTvScreen({
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [favorites, setFavorites] = useState<string[]>(() => {
-    try { return JSON.parse(localStorage.getItem("lc_play_favorite_channels") ?? "[]") as string[]; }
+    try {
+      const stored: unknown = JSON.parse(localStorage.getItem("lc_play_favorite_channels") ?? "[]");
+      return Array.isArray(stored) ? stored.filter((id): id is string => typeof id === "string") : [];
+    }
     catch { return []; }
   });
-  const filtered = channels.filter((item) =>
-    (group === "Todos" || cleanGroupLabel(item.group) === group) &&
-    (!favoritesOnly || favorites.includes(item.id)) &&
-    (!query || normalizeText(`${item.name} ${item.now?.title ?? ""}`).includes(normalizeText(query))),
-  );
-  const selected = filtered.find((item) => item.id === selectedId) ?? filtered[0] ?? null;
+  const channelIndex = useMemo(() => channels.map((item) => ({ item, group: cleanGroupLabel(item.group), search: normalizeText(`${item.name} ${item.now?.title ?? ""}`) })), [channels]);
+  const groupCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const entry of channelIndex) counts.set(entry.group, (counts.get(entry.group) ?? 0) + 1);
+    return counts;
+  }, [channelIndex]);
+  const favoriteSet = useMemo(() => new Set(favorites), [favorites]);
+  const favoriteFilter = favoritesOnly ? favoriteSet : null;
+  const normalizedQuery = normalizeText(query);
+  const filtered = useMemo(() => channelIndex.filter((entry) =>
+    (group === "Todos" || entry.group === group) &&
+    (!favoriteFilter || favoriteFilter.has(entry.item.id)) &&
+    (!normalizedQuery || entry.search.includes(normalizedQuery)),
+  ).map((entry) => entry.item), [channelIndex, group, favoriteFilter, normalizedQuery]);
+  const selected = channels.find((item) => item.id === selectedId) ?? null;
 
-  function toggleFavorite(id: string) {
-    const next = favorites.includes(id) ? favorites.filter((favorite) => favorite !== id) : [...favorites, id];
+  const toggleFavorite = useCallback((id: string) => {
+    const next = favoriteSet.has(id) ? favorites.filter((favorite) => favorite !== id) : [...favorites, id];
     setFavorites(next);
-    localStorage.setItem("lc_play_favorite_channels", JSON.stringify(next));
-  }
+    try { localStorage.setItem("lc_play_favorite_channels", JSON.stringify(next)); } catch { /* Mantém favoritos na sessão quando o armazenamento está cheio. */ }
+  }, [favorites, favoriteSet]);
 
   return (
     <section className="live-screen">
@@ -602,8 +654,8 @@ function LiveTvScreen({
             <div className="live-column-heading"><span>CATEGORIAS</span><small>{groups.length - 1}</small></div>
             <div className="live-category-scroll">
               {groups.map((name) => (
-                <button key={name} data-focusable className={group === name ? "active" : ""} onClick={() => { setGroup(name); setSelectedId(null); }}>
-                  <span>{name}</span><small>{name === "Todos" ? channels.length : channels.filter((item) => cleanGroupLabel(item.group) === name).length}</small>
+                <button key={name} data-focusable className={group === name ? "active" : ""} onClick={() => setGroup(name)}>
+                  <span>{name}</span><small>{name === "Todos" ? channels.length : groupCounts.get(name) ?? 0}</small>
                 </button>
               ))}
             </div>
@@ -611,25 +663,16 @@ function LiveTvScreen({
 
           <section className="live-channel-column" aria-label="Canais">
             <div className="live-channel-tools">
-              <label className="live-search"><Search size={19} /><input data-focusable value={query} onChange={(event) => { setQuery(event.target.value); setSelectedId(null); }} placeholder="Buscar canal" aria-label="Buscar canal" /></label>
+              <label className="live-search"><Search size={19} /><input data-focusable value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar canal" aria-label="Buscar canal" /></label>
               <div className="live-filter-row">
                 <button data-focusable className={!favoritesOnly ? "active" : ""} onClick={() => setFavoritesOnly(false)}>Todos</button>
-                <button data-focusable className={favoritesOnly ? "active" : ""} onClick={() => { setFavoritesOnly(true); setSelectedId(null); }}>Favoritos <span>{favorites.length}</span></button>
+                <button data-focusable className={favoritesOnly ? "active" : ""} onClick={() => setFavoritesOnly(true)}>Favoritos <span>{favorites.length}</span></button>
               </div>
             </div>
-            <div className="live-channel-scroll">
-              {filtered.map((item, index) => (
-                <div className={`live-channel-row ${selected?.id === item.id ? "selected" : ""}`} key={item.id}>
-                  <button data-focusable data-autofocus={index === 0 ? "" : undefined} className="live-channel-pick" onClick={() => setSelectedId(item.id)}>
-                    <span className="live-channel-logo"><span>{item.name.slice(0, 2).toUpperCase()}</span>{item.logo ? <img src={item.logo} alt="" loading="lazy" onError={(event) => { event.currentTarget.style.display = "none"; }} /> : null}</span>
-                    <span className="live-channel-label"><strong>{item.name}</strong><small>{item.now?.title ?? cleanGroupLabel(item.group)}</small></span>
-                  </button>
-                  <button data-focusable className={`live-favorite ${favorites.includes(item.id) ? "is-favorite" : ""}`} onClick={() => toggleFavorite(item.id)} aria-label={`${favorites.includes(item.id) ? "Remover" : "Adicionar"} ${item.name} ${favorites.includes(item.id) ? "dos" : "aos"} favoritos`}><Heart fill={favorites.includes(item.id) ? "currentColor" : "none"} /></button>
-                </div>
-              ))}
+            <VirtualChannelList items={filtered} selectedId={selected?.id ?? null} favorites={favoriteSet} onSelect={setSelectedId} onFavorite={toggleFavorite}>
               {loading && !catalog ? <p className="live-empty">Carregando canais...</p> : null}
               {!loading && !filtered.length ? <div className="live-empty"><p>{error || (favoritesOnly ? "Nenhum canal favorito nesta categoria." : "Nenhum canal encontrado.")}</p>{error ? <button data-focusable onClick={() => void onRefresh()}>Tentar novamente</button> : null}</div> : null}
-            </div>
+            </VirtualChannelList>
             <footer className="live-channel-footer">{filtered.length} {filtered.length === 1 ? "canal" : "canais"} nesta seleção</footer>
           </section>
 
@@ -654,6 +697,64 @@ function LiveTvScreen({
     </section>
   );
 }
+
+const VirtualChannelList = memo(function VirtualChannelList({ items, selectedId, favorites, onSelect, onFavorite, children }: {
+  items: CatalogItem[];
+  selectedId: string | null;
+  favorites: Set<string>;
+  onSelect: (id: string) => void;
+  onFavorite: (id: string) => void;
+  children: ReactNode;
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const frameRef = useRef<number | null>(null);
+  const [viewport, setViewport] = useState({ scrollTop: 0, height: 520 });
+  const range = virtualChannelRange(items.length, viewport.scrollTop, viewport.height);
+
+  const measure = useCallback(() => {
+    if (frameRef.current !== null) return;
+    frameRef.current = window.requestAnimationFrame(() => {
+      frameRef.current = null;
+      const element = scrollRef.current;
+      if (!element) return;
+      setViewport((current) => current.scrollTop === element.scrollTop && current.height === element.clientHeight
+        ? current : { scrollTop: element.scrollTop, height: element.clientHeight });
+    });
+  }, []);
+
+  useLayoutEffect(() => {
+    const element = scrollRef.current;
+    if (!element) return;
+    element.scrollTop = 0;
+    setViewport({ scrollTop: 0, height: element.clientHeight });
+    if (items.length && document.activeElement === document.body) element.querySelector<HTMLElement>(".live-channel-pick")?.focus();
+  }, [items]);
+
+  useEffect(() => {
+    window.addEventListener("resize", measure);
+    return () => {
+      window.removeEventListener("resize", measure);
+      if (frameRef.current !== null) window.cancelAnimationFrame(frameRef.current);
+    };
+  }, [measure]);
+
+  return <div ref={scrollRef} className="live-channel-scroll" onScroll={measure}>
+    <div role="list" aria-label="Lista de canais" style={{ paddingTop: range.top, paddingBottom: range.bottom }}>
+      {items.slice(range.start, range.end).map((item, index) => {
+        const position = range.start + index;
+        const favorite = favorites.has(item.id);
+        return <div role="listitem" aria-posinset={position + 1} aria-setsize={items.length} className={`live-channel-row ${selectedId === item.id ? "selected" : ""}`} key={item.id} style={{ height: CHANNEL_ROW_HEIGHT }}>
+          <button data-focusable data-autofocus={position === 0 ? "" : undefined} className="live-channel-pick" onClick={() => onSelect(item.id)}>
+            <span className="live-channel-logo"><span>{item.name.slice(0, 2).toUpperCase()}</span>{item.logo ? <img src={item.logo} alt="" loading="lazy" decoding="async" onError={(event) => { event.currentTarget.style.display = "none"; }} /> : null}</span>
+            <span className="live-channel-label"><strong>{item.name}</strong><small>{item.now?.title ?? cleanGroupLabel(item.group)}</small></span>
+          </button>
+          <button data-focusable className={`live-favorite ${favorite ? "is-favorite" : ""}`} onClick={() => onFavorite(item.id)} aria-label={`${favorite ? "Remover" : "Adicionar"} ${item.name} ${favorite ? "dos" : "aos"} favoritos`}><Heart fill={favorite ? "currentColor" : "none"} /></button>
+        </div>;
+      })}
+    </div>
+    {children}
+  </div>;
+});
 
 function CatalogScreen({
   kind,
@@ -1071,16 +1172,85 @@ function CatalogMessage({ icon, title, action }: { icon: ReactNode; title: strin
   return <div className="catalog-message"><span>{icon}</span><h2>{title}</h2>{action}</div>;
 }
 
-function StreamVideo({ item, onError, controls = false }: { item: CatalogItem; onError?: (message: string) => void; controls?: boolean }) {
+function StreamVideo({ item, controls = false }: { item: CatalogItem; controls?: boolean }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [attempt, setAttempt] = useState(0);
+  const [status, setStatus] = useState("Carregando transmissão...");
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
     let disposed = false;
     let destroyHls: (() => void) | undefined;
-    const handleVideoError = () => onError?.("Não foi possível reproduzir este conteúdo.");
+    let stopLoading: (() => void) | undefined;
+    let recoverNetwork: (() => void) | undefined;
+    let recoverMedia: (() => void) | undefined;
+    let retryTimer: number | undefined;
+    let retries = 0;
+    let mediaRetries = 0;
+    let lastTime = 0;
+    let lastProgress = Date.now();
+    let receivedVideo = false;
+    let started = false;
+    let terminal = false;
+    setFailed(false);
+    setStatus("Carregando transmissão...");
+
+    const fail = (message: string) => {
+      if (disposed || terminal) return;
+      terminal = true;
+      stopLoading?.();
+      video.pause();
+      setFailed(true);
+      setStatus(message);
+    };
+    const reconnect = () => {
+      if (disposed || terminal || retryTimer !== undefined) return;
+      if (retries >= 2) return fail("A transmissão continua sem responder. Tente novamente ou escolha outra versão do canal.");
+      retries += 1;
+      setStatus("Reconectando transmissão...");
+      lastProgress = Date.now();
+      retryTimer = window.setTimeout(() => {
+        retryTimer = undefined;
+        if (disposed || terminal) return;
+        if (recoverNetwork) recoverNetwork();
+        else { video.load(); void video.play().catch(() => undefined); }
+      }, 1000);
+    };
+    const handleVideoError = () => {
+      if (video.error?.code === 4) fail("Formato de vídeo não suportado neste aparelho. Tente a versão HD ou SD.");
+      else if (video.error?.code === 3 && recoverMedia && mediaRetries < 1) {
+        mediaRetries += 1;
+        lastProgress = Date.now();
+        setStatus("Recuperando reprodução...");
+        recoverMedia();
+      } else if (video.error?.code === 2) reconnect();
+      else fail("Não foi possível decodificar este vídeo. Tente a versão HD ou SD.");
+    };
+    const handleProgress = () => {
+      if (terminal) return;
+      if (video.currentTime > lastTime + 0.05) {
+        started = true;
+        lastTime = video.currentTime;
+        lastProgress = Date.now();
+        if (video.videoWidth > 0) {
+          receivedVideo = true;
+          setStatus("");
+        }
+      }
+    };
+    const handleWaiting = () => { if (!terminal) setStatus("Aguardando dados da transmissão..."); };
     video.addEventListener("error", handleVideoError);
+    video.addEventListener("timeupdate", handleProgress);
+    video.addEventListener("waiting", handleWaiting);
+    // Event-driven updates avoid rendering the channel list on every video tick.
+    const watchdog = window.setInterval(() => {
+      if (disposed || terminal || document.hidden || video.ended) return;
+      if (!receivedVideo && video.readyState >= 2 && video.currentTime > 6 && video.videoWidth === 0 && !/r[aá]dio/i.test(item.name)) {
+        fail("A fonte enviou áudio, mas o vídeo não é compatível neste aparelho. Tente a versão HD ou SD.");
+      } else if ((!video.paused || !started) && Date.now() - lastProgress > 25_000) reconnect();
+    }, 2000);
 
     async function start() {
       if (!video) return;
@@ -1093,39 +1263,67 @@ function StreamVideo({ item, onError, controls = false }: { item: CatalogItem; o
       const { default: Hls } = await import("hls.js");
       if (disposed) return;
       if (!Hls.isSupported()) {
-        onError?.("Este formato de transmissão não é compatível com o aparelho.");
+        fail("Este formato de transmissão não é compatível com o aparelho.");
         return;
       }
-      const hls = new Hls({ enableWorker: true, lowLatencyMode: false });
+      const hls = new Hls({
+        enableWorker: true,
+        lowLatencyMode: false,
+        maxBufferLength: 15,
+        maxMaxBufferLength: 30,
+        maxBufferSize: 12 * 1024 * 1024,
+        backBufferLength: 0,
+        capLevelToPlayerSize: true,
+        capLevelOnFPSDrop: true,
+      });
       destroyHls = () => hls.destroy();
+      stopLoading = () => hls.stopLoad();
+      recoverNetwork = () => { hls.startLoad(-1); void video.play().catch(() => undefined); };
+      recoverMedia = () => hls.recoverMediaError();
       hls.on(Hls.Events.ERROR, (_event, data) => {
-        if (data.fatal) onError?.("A transmissão não respondeu. Tente outro canal.");
+        if (import.meta.env.DEV) console.warn("[LC PLAY] reprodução", { type: data.type, details: data.details, fatal: data.fatal, status: data.response?.code });
+        if (!data.fatal || disposed || terminal) return;
+        if (data.response?.code === 401 || data.response?.code === 403) {
+          fail("A fonte recusou o acesso ao canal. Confira a conta e o limite de conexões da lista.");
+        } else if (data.type === Hls.ErrorTypes.NETWORK_ERROR) reconnect();
+        else if (data.type === Hls.ErrorTypes.MEDIA_ERROR && mediaRetries < 1) {
+          mediaRetries += 1;
+          lastProgress = Date.now();
+          setStatus("Recuperando reprodução...");
+          hls.recoverMediaError();
+        } else fail("Não foi possível decodificar este vídeo. Tente a versão HD ou SD.");
       });
       hls.loadSource(item.streamUrl);
       hls.attachMedia(video);
       await video.play().catch(() => undefined);
     }
 
-    void start();
+    void start().catch(() => fail("Não foi possível iniciar a transmissão. Tente novamente."));
     return () => {
       disposed = true;
       video.removeEventListener("error", handleVideoError);
+      video.removeEventListener("timeupdate", handleProgress);
+      video.removeEventListener("waiting", handleWaiting);
+      window.clearInterval(watchdog);
+      window.clearTimeout(retryTimer);
       destroyHls?.();
+      video.pause();
       video.removeAttribute("src");
       video.load();
     };
-  }, [item.streamUrl, onError]);
+  }, [item.streamUrl, item.name, attempt]);
 
-  return <video ref={videoRef} autoPlay controls={controls} muted={!controls} playsInline />;
+  return <>
+    <video ref={videoRef} autoPlay controls={controls} muted={!controls} playsInline />
+    {status ? <div className={`stream-status ${failed ? "is-error" : ""}`} role="status"><p>{status}</p>{failed ? <button data-focusable onClick={() => setAttempt((current) => current + 1)}>Tentar novamente</button> : null}</div> : null}
+  </>;
 }
 
 function StreamPlayer({ item, onClose }: { item: CatalogItem; onClose: () => void }) {
-  const [error, setError] = useState("");
-
   const progress = programmeProgress(item.now);
   return (
     <section className="stream-player" role="dialog" aria-modal="true" aria-label={item.name}>
-      {item.streamUrl ? <StreamVideo item={item} onError={setError} controls /> : <div className="stream-demo"><Brand /><p>Prévia visual da demonstração</p></div>}
+      {item.streamUrl ? <StreamVideo item={item} controls /> : <div className="stream-demo"><Brand /><p>Prévia visual da demonstração</p></div>}
       <button data-focusable data-autofocus className="player-close" onClick={onClose} aria-label="Fechar player"><X /></button>
       <div className="programme-panel">
         <span className="programme-channel"><Radio />{item.name}</span>
@@ -1138,7 +1336,6 @@ function StreamPlayer({ item, onClose }: { item: CatalogItem; onClose: () => voi
           </>
         ) : null}
         {item.next ? <div className="programme-next"><strong>A seguir</strong><span>{formatTime(item.next.startsAt)} · {item.next.title}</span></div> : null}
-        {error ? <p className="player-error">{error}</p> : null}
       </div>
     </section>
   );
@@ -1150,7 +1347,7 @@ function useClock() {
     const timer = window.setInterval(() => setTime(new Date()), 30_000);
     return () => window.clearInterval(timer);
   }, []);
-  return new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit" }).format(time);
+  return clockFormatter.format(time);
 }
 
 function formatCount(value: number) {
@@ -1163,7 +1360,7 @@ function formatDate(value: string | null) {
 }
 
 function formatTime(value: string) {
-  return new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit" }).format(new Date(value));
+  return clockFormatter.format(new Date(value));
 }
 
 function programmeProgress(programme: CatalogItem["now"]) {

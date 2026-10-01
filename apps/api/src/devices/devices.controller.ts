@@ -16,6 +16,8 @@ import { CatalogService } from "../catalog/catalog.service";
 import { CurrentDevice } from "./current-device.decorator";
 import type { DevicePrincipal } from "./device-token.guard";
 import { DeviceTokenGuard } from "./device-token.guard";
+import { catalogKindSchema } from "@lc-play/contracts";
+import { parseBody } from "../common/parse";
 import { DevicesService } from "./devices.service";
 
 @Controller("admin/devices")
@@ -104,9 +106,8 @@ export class TvDeviceController {
 
   @Get("catalog")
   @UseGuards(DeviceTokenGuard)
-  catalogForDevice(@CurrentDevice() device: DevicePrincipal, @Query("refresh") refresh?: string) {
-    void refresh;
-    return this.catalog.forDevice(device);
+  catalogForDevice(@CurrentDevice() device: DevicePrincipal, @Query("kind") kind?: string) {
+    return this.catalog.forDevice(device, parseBody(catalogKindSchema.optional(), kind));
   }
 }
 

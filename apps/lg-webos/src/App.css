@@ -604,6 +604,10 @@
   background: #000;
 }
 .stream-player video { width: 100%; height: 100%; display: block; object-fit: contain; background: #000; }
+.stream-status { position: absolute; z-index: 4; top: 70px; right: 18px; left: 18px; padding: 12px 16px; border: 1px solid #44516b; border-radius: 8px; background: #101827ed; color: #dce7f6; text-align: center; font-size: 14px; }
+.stream-status p { margin: 0; }
+.stream-status.is-error { border-color: #b34e49; }
+.stream-status button { margin-top: 12px; padding: 10px 16px; border: 0; border-radius: 6px; background: #087df5; color: #fff; cursor: pointer; }
 .stream-demo { width: 100%; height: 100%; display: grid; place-content: center; justify-items: center; gap: 20px; background: radial-gradient(circle at 50% 40%, #1b4a8c, #080c1d 65%); }
 .stream-demo .tv-brand { font-size: clamp(34px, 6vw, 90px); }
 .stream-demo .tv-brand-mark { width: clamp(60px, 8vw, 130px); height: clamp(60px, 8vw, 130px); }
@@ -733,7 +737,7 @@
 .live-rail button { width: 52px; height: 52px; display: grid; place-items: center; border: 0; border-radius: 12px; background: transparent; color: #929baa; cursor: pointer; }
 .live-rail button svg { width: 23px; height: 23px; }
 .live-rail button.active { background: #102e55; color: #48a3ff; box-shadow: inset 3px 0 0 var(--live-blue); }
-.live-rail button:hover, .live-rail button:focus-visible { color: #fff; background: #243247; }
+.live-rail button:hover, .live-rail button:focus { color: #fff; background: #243247; }
 .live-rail .rail-settings { margin-top: auto; }
 .live-main { min-width: 0; min-height: 0; display: grid; grid-template-rows: 96px minmax(0, 1fr); }
 .live-topbar { display: flex; align-items: center; justify-content: space-between; gap: 28px; padding: 0 32px; border-bottom: 1px solid #22252c; }
@@ -769,7 +773,7 @@
 .live-channel-row.selected { background: var(--live-blue); }
 .live-channel-row:not(.selected):hover { background: #22262e; }
 .live-channel-pick { min-width: 0; min-height: 63px; flex: 1; display: flex; align-items: center; gap: 12px; padding: 7px 4px 7px 8px; border: 0; background: transparent; text-align: left; cursor: pointer; }
-.live-channel-pick:focus-visible { outline-offset: -3px; border-radius: 9px; }
+.live-channel-pick:focus { outline-offset: -3px; border-radius: 9px; }
 .live-channel-logo { width: 39px; height: 39px; flex: 0 0 auto; position: relative; display: grid; place-items: center; overflow: hidden; border-radius: 8px; background: #30343c; color: #dce6f4; font-size: 11px; font-weight: 800; }
 .live-channel-logo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #202329; }
 .live-channel-label { min-width: 0; display: grid; gap: 3px; }

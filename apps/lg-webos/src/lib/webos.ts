@@ -21,7 +21,7 @@ const PREVIEW_ID_KEY = "lc_play_preview_device_id";
 function previewDeviceId() {
   const existing = localStorage.getItem(PREVIEW_ID_KEY);
   if (existing) return existing;
-  const randomPart = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
+  const randomPart = window.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
   const value = `preview-lg-${randomPart}`;
   localStorage.setItem(PREVIEW_ID_KEY, value);
   return value;

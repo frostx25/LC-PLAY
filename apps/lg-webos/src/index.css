@@ -32,8 +32,8 @@ button {
   color: inherit;
 }
 
-button:focus-visible,
-input:focus-visible {
+button:focus,
+input:focus {
   outline: 4px solid #7ea0ff;
   outline-offset: 4px;
 }

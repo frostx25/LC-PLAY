@@ -6,11 +6,12 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import type { Playlist } from "@prisma/client";
-import type { CatalogItem, DeviceCatalog } from "@lc-play/contracts";
+import type { CatalogItem, CatalogKind, DeviceCatalog } from "@lc-play/contracts";
 import { decryptSecret, sha256 } from "../common/crypto";
 import type { DevicePrincipal } from "../devices/device-token.guard";
 import { PrismaService } from "../prisma/prisma.service";
 import { attachEpg, parseM3uCatalog, parseXmltv } from "./catalog.parsers";
+import { selectCatalogKind } from "./catalog.selection";
 
 const CATALOG_CACHE_MS = 5 * 60_000;
 const MAX_CATALOG_BYTES = 150 * 1024 * 1024;
@@ -37,7 +38,7 @@ export class CatalogService {
     private readonly config: ConfigService,
   ) {}
 
-  async forDevice(device: DevicePrincipal): Promise<DeviceCatalog> {
+  async forDevice(device: DevicePrincipal, kind?: CatalogKind): Promise<DeviceCatalog> {
     const playlist = device.playlist;
     if (!playlist) throw new BadRequestException("Nenhuma fonte está vinculada a este dispositivo.");
     if (playlist.status === "PAUSED") throw new ServiceUnavailableException("A fonte vinculada está pausada.");
@@ -54,7 +55,7 @@ export class CatalogService {
       playlist.passwordEncrypted ?? "",
     ].join(":"));
     const cached = this.cache.get(cacheKey);
-    if (cached && cached.expiresAt > Date.now()) return cached.catalog;
+    if (cached && cached.expiresAt > Date.now()) return selectCatalogKind(cached.catalog, kind);
 
     try {
       const catalog = await this.loadM3u(playlist);
@@ -68,7 +69,7 @@ export class CatalogService {
           lastError: catalog.epg.status === "ERROR" ? "Lista carregada, mas o EPG não pôde ser atualizado." : null,
         },
       });
-      return catalog;
+      return selectCatalogKind(catalog, kind);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Falha desconhecida ao carregar a fonte.";
       await this.prisma.playlist.update({

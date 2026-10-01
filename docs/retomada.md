@@ -8,7 +8,10 @@ Estado iniciado em 30/09/2026 e atualizado em 01/10/2026. Repositório: https://
 - Busca e favoritos de canais foram adicionados ao player. Os favoritos ficam no armazenamento local do aparelho.
 - A prévia usa o stream real quando a fonte está configurada. O modo `?demo` mostra somente arte e programação ilustrativas.
 - A tela foi conferida no navegador em 1280 x 720 e 1920 x 1080; build e lint do player LG passaram. Reprodução em TV LG real continua pendente.
-- Nesta máquina, o checkout está em `C:\Users\leeoc\OneDrive\Documentos\ChatGPT\LCPLAY`. Node e pnpm estão disponíveis; o Docker Desktop estava instalado, mas o serviço não estava ativo. Os arquivos locais de ambiente ainda precisam ser configurados para usar API e banco.
+- API, painel e player estão configurados nesta máquina, com PostgreSQL e Redis no Docker. Arquivos locais de ambiente e credenciais são ignorados pelo Git.
+- O painel permite cadastrar uma fonte diretamente no formulário do dispositivo ou ao alterar sua fonte, com salvamento transacional.
+- Player com catálogo por seção, lista ao vivo virtualizada, páginas de 24 cards e buffer HLS reduzido. A lista real desenhou 12 a 16 linhas para 2.000 canais; a resposta inicial ficou 66% menor. Detalhes e limites em `apps/lg-webos/README.md`.
+- Falhas de reprodução agora aparecem na prévia e na tela cheia, com tentativa manual e reconexão automática limitada. Globo SP HD/FHD reproduziram; H265 ficou sem imagem no navegador e passou a mostrar orientação para usar HD/SD. Reprodução e travamentos em TV real continuam pendentes.
 
 ## Estado atual
 
@@ -24,7 +27,7 @@ Estado iniciado em 30/09/2026 e atualizado em 01/10/2026. Repositório: https://
 ## Validação realizada
 
 - Lint e typecheck da API, painel e player LG.
-- Sete testes da API passaram, cobrindo classificação M3U, episódios, EPG, fuso horário e criptografia.
+- Doze testes da API e dois testes de janela virtual passaram, cobrindo classificação M3U, episódios, EPG, criptografia, fonte direta e seleção de seção.
 - Build dos contratos e do player LG.
 - Fluxo real de ativação, catálogo e edição da fonte validado no navegador.
 - Layout verificado em 1920 x 1080 e 1366 x 768.
@@ -33,7 +36,7 @@ Estado iniciado em 30/09/2026 e atualizado em 01/10/2026. Repositório: https://
 
 - O catálogo entregue ao aparelho é limitado a 2.000 canais, 1.500 filmes e 5.000 episódios de até 750 séries. Os contadores refletem o total da fonte. Implementar consulta e paginação no servidor para disponibilizar o catálogo completo e todos os episódios.
 - A classificação usa metadados, categoria e caminho da URL; revisar formatos adicionais de listas conforme surgirem.
-- Testar reprodução na LG real. O stream usado no teste do navegador não reproduziu; a causa ainda precisa ser diagnosticada.
+- Testar instalação e reprodução na LG real. TV ao vivo, filme e episódio reproduziram no navegador desta máquina; isso não confirma codecs, memória ou fluidez em hardware. O alvo inicial de compilação é webOS 5 ou superior.
 - Fontes Xtream podem ser cadastradas, mas a importação no player ainda aceita somente M3U.
 - A grade atual mostra agora e a seguir; uma grade EPG por horários exige manter a programação completa.
 - Implementar no Roku o catálogo, EPG e experiência equivalente ao player LG.
@@ -53,6 +56,6 @@ pnpm --filter @lc-play/lg-webos dev
 - Player: http://localhost:5173
 - Demonstração: http://localhost:5173/?demo
 
-Para executar API e painel nesta máquina, seguir a instalação do README, configurar os arquivos de ambiente a partir dos exemplos e iniciar PostgreSQL/Redis. O banco preparado no ambiente anterior não veio com o repositório.
+Os serviços e o banco local já estão preparados nesta máquina. Em outra máquina, seguir a instalação do README e configurar novos arquivos locais de ambiente.
 
 Publicação na VM depende de solicitação do proprietário.

@@ -9,23 +9,27 @@ function center(element: HTMLElement) {
 
 function nextElement(current: HTMLElement, candidates: HTMLElement[], direction: Direction) {
   const origin = center(current);
-  return candidates
-    .filter((candidate) => candidate !== current)
-    .map((candidate) => {
-      const point = center(candidate);
-      const dx = point.x - origin.x;
-      const dy = point.y - origin.y;
-      const valid =
-        (direction === "left" && dx < -8) ||
-        (direction === "right" && dx > 8) ||
-        (direction === "up" && dy < -8) ||
-        (direction === "down" && dy > 8);
-      const primary = direction === "left" || direction === "right" ? Math.abs(dx) : Math.abs(dy);
-      const secondary = direction === "left" || direction === "right" ? Math.abs(dy) : Math.abs(dx);
-      return { candidate, valid, score: primary + secondary * 2.4 };
-    })
-    .filter((item) => item.valid)
-    .sort((a, b) => a.score - b.score)[0]?.candidate;
+  let target: HTMLElement | undefined;
+  let bestScore = Infinity;
+  for (const candidate of candidates) {
+    if (candidate === current) continue;
+    const point = center(candidate);
+    const dx = point.x - origin.x;
+    const dy = point.y - origin.y;
+    const valid =
+      (direction === "left" && dx < -8) ||
+      (direction === "right" && dx > 8) ||
+      (direction === "up" && dy < -8) ||
+      (direction === "down" && dy > 8);
+    const primary = direction === "left" || direction === "right" ? Math.abs(dx) : Math.abs(dy);
+    const secondary = direction === "left" || direction === "right" ? Math.abs(dy) : Math.abs(dx);
+    const score = primary + secondary * 2.4;
+    if (valid && score < bestScore) {
+      target = candidate;
+      bestScore = score;
+    }
+  }
+  return target;
 }
 
 export function useSpatialNavigation(enabled = true) {
@@ -39,6 +43,7 @@ export function useSpatialNavigation(enabled = true) {
     };
 
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return;
       const direction = keyDirections[event.key];
       if (!direction) return;
       const scope = document.querySelector<HTMLElement>("[aria-modal='true']") ?? document;
@@ -60,7 +65,10 @@ export function useSpatialNavigation(enabled = true) {
 
     window.addEventListener("keydown", onKeyDown);
     const first = document.querySelector<HTMLElement>("[data-focusable]:not([disabled])");
-    window.setTimeout(() => first?.focus(), 80);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    const focusTimer = window.setTimeout(() => first?.focus(), 80);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.clearTimeout(focusTimer);
+    };
   }, [enabled]);
 }

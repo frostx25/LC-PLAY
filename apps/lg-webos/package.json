@@ -9,7 +9,7 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",
-    "test": "node --test"
+    "test": "node --test tests/virtual-range.test.mjs"
   },
   "dependencies": {
     "@lc-play/contracts": "workspace:*",

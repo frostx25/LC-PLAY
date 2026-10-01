@@ -6,7 +6,8 @@ export default defineConfig({
   plugins: [react()],
   base: './',
   build: {
-    target: 'es2018',
+    target: 'chrome68',
+    cssTarget: 'chrome68',
     outDir: 'dist',
   },
   server: {

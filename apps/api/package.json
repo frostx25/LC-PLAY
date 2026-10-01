@@ -9,7 +9,7 @@
     "dev:local": "prisma generate --schema prisma/schema.local.prisma && nest start --watch",
     "start": "node dist/main.js",
     "lint": "eslint \"src/**/*.ts\" \"prisma/**/*.ts\"",
-    "test": "tsx --test src/common/crypto.test.ts src/catalog/catalog.parsers.test.ts src/devices/device-source.test.ts",
+    "test": "tsx --test src/common/crypto.test.ts src/catalog/catalog.parsers.test.ts src/catalog/catalog.selection.test.ts src/devices/device-source.test.ts",
     "typecheck": "tsc --noEmit",
     "prisma:generate": "prisma generate --schema prisma/schema.prisma",
     "prisma:generate:local": "prisma generate --schema prisma/schema.local.prisma",

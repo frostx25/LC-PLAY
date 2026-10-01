@@ -120,7 +120,8 @@ export interface DeviceActivationResponse {
   };
 }
 
-export type CatalogKind = "LIVE" | "MOVIE" | "SERIES";
+export const catalogKindSchema = z.enum(["LIVE", "MOVIE", "SERIES"]);
+export type CatalogKind = z.infer<typeof catalogKindSchema>;
 
 export interface EpgProgramme {
   title: string;
@@ -148,6 +149,7 @@ export interface CatalogItem {
 }
 
 export interface DeviceCatalog {
+  kind?: CatalogKind;
   source: {
     id: string;
     name: string;
