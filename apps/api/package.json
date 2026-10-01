@@ -1,0 +1,60 @@
+{
+  "name": "@lc-play/api",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "nest build",
+    "predev": "prisma generate --schema prisma/schema.prisma",
+    "dev": "nest start --watch",
+    "dev:local": "prisma generate --schema prisma/schema.local.prisma && nest start --watch",
+    "start": "node dist/main.js",
+    "lint": "eslint \"src/**/*.ts\" \"prisma/**/*.ts\"",
+    "test": "tsx --test src/common/crypto.test.ts src/catalog/catalog.parsers.test.ts",
+    "typecheck": "tsc --noEmit",
+    "prisma:generate": "prisma generate --schema prisma/schema.prisma",
+    "prisma:generate:local": "prisma generate --schema prisma/schema.local.prisma",
+    "prisma:local:push": "prisma db push --schema prisma/schema.local.prisma",
+    "prisma:migrate": "prisma migrate deploy",
+    "prisma:migrate:dev": "prisma migrate dev",
+    "prisma:seed": "prisma db seed --schema prisma/schema.prisma",
+    "prisma:seed:local": "prisma db seed --schema prisma/schema.local.prisma"
+  },
+  "dependencies": {
+    "@lc-play/contracts": "workspace:*",
+    "@nestjs/common": "latest",
+    "@nestjs/config": "latest",
+    "@nestjs/core": "latest",
+    "@nestjs/jwt": "latest",
+    "@nestjs/platform-express": "latest",
+    "@prisma/client": "6.19.0",
+    "fast-xml-parser": "5.11.2",
+    "helmet": "latest",
+    "iptv-playlist-parser": "0.15.2",
+    "reflect-metadata": "latest",
+    "rxjs": "latest",
+    "zod": "latest"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "latest",
+    "@nestjs/schematics": "latest",
+    "@nestjs/testing": "latest",
+    "@types/express": "latest",
+    "@types/jest": "latest",
+    "@types/node": "latest",
+    "eslint": "latest",
+    "jest": "latest",
+    "prisma": "6.19.0",
+    "source-map-support": "latest",
+    "supertest": "latest",
+    "ts-jest": "latest",
+    "ts-loader": "latest",
+    "ts-node": "latest",
+    "tsconfig-paths": "latest",
+    "tsx": "latest",
+    "typescript": "~6.0.2",
+    "typescript-eslint": "latest"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  }
+}

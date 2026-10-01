@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 190" role="img" aria-labelledby="title">
+  <title id="title">LC PLAY</title>
+  <rect x="0" y="0" width="190" height="190" rx="34" fill="#ff6656"/>
+  <path d="M34 52h27v75h44v24H34V52Z" fill="#fff"/>
+  <path d="M142 72c-9-12-23-20-39-20-28 0-50 22-50 51s22 51 50 51c19 0 35-9 44-24l-21-14c-5 7-12 12-22 12-14 0-24-11-24-25s10-25 24-25c9 0 17 4 21 11l17-17Z" fill="#fff"/>
+  <path d="m114 78 40 25-40 24V78Z" fill="#090b10"/>
+  <text x="232" y="128" fill="#f7f8fa" font-family="Arial, sans-serif" font-size="100" font-weight="700">LC</text>
+  <text x="380" y="128" fill="#8eacff" font-family="Arial, sans-serif" font-size="100" font-weight="800">PLAY</text>
+</svg>
+

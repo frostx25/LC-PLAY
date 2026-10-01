@@ -1,0 +1,35 @@
+{
+  "name": "lc-play",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Plataforma de gerenciamento e reprodução de mídia autorizada para LG webOS e Roku.",
+  "packageManager": "pnpm@11.19.0",
+  "scripts": {
+    "build": "turbo build",
+    "dev": "turbo dev --parallel",
+    "dev:core": "pnpm --filter @lc-play/contracts build && turbo dev --filter=@lc-play/api --filter=@lc-play/admin-web --filter=@lc-play/lg-webos",
+    "lint": "turbo lint",
+    "test": "turbo test",
+    "typecheck": "turbo typecheck",
+    "format": "prettier --write .",
+    "brand:assets": "node scripts/generate-brand-assets.mjs",
+    "db:generate": "pnpm --filter @lc-play/api prisma:generate",
+    "db:generate:local": "pnpm --filter @lc-play/api prisma:generate:local",
+    "db:local:push": "pnpm --filter @lc-play/api prisma:local:push",
+    "db:migrate": "pnpm --filter @lc-play/api prisma:migrate",
+    "db:seed": "pnpm --filter @lc-play/api prisma:seed",
+    "db:seed:local": "pnpm --filter @lc-play/api prisma:seed:local",
+    "docker:up": "docker compose up -d postgres redis",
+    "docker:down": "docker compose down"
+  },
+  "devDependencies": {
+    "prettier": "latest",
+    "sharp": "latest",
+    "turbo": "latest",
+    "typescript": "~6.0.2"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
+

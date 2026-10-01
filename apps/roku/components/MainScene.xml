@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="MainScene" extends="Scene">
+    <script type="text/brightscript" uri="pkg:/components/MainScene.brs" />
+    <children>
+        <Rectangle width="1920" height="1080" color="0x090B10FF" />
+
+        <Group id="activationLayer">
+            <Rectangle translation="[0, 0]" width="102" height="1080" color="0x0C0F16FF" />
+            <Rectangle translation="[102, 0]" width="1818" height="5" color="0xFF6656FF" />
+
+            <Group translation="[210, 115]">
+                <Rectangle width="72" height="72" color="0xFF6656FF" cornerRadius="8" />
+                <Label translation="[14, 18]" text="LC" color="0xFFFFFFFF" width="48" height="40" horizAlign="center">
+                    <Font role="font" uri="font:MediumSystemFont" size="26" />
+                </Label>
+                <Label translation="[94, 12]" text="LC PLAY" color="0xF7F8FAFF" width="320" height="52">
+                    <Font role="font" uri="font:MediumSystemFont" size="34" />
+                </Label>
+            </Group>
+
+            <Group translation="[210, 310]">
+                <Label text="ATIVAÇÃO SEGURA" color="0x8EACFFFF" width="680" height="35">
+                    <Font role="font" uri="font:MediumSystemFont" size="20" />
+                </Label>
+                <Label translation="[0, 58]" text="Ative este Roku" color="0xF7F8FAFF" width="780" height="86">
+                    <Font role="font" uri="font:MediumSystemFont" size="58" />
+                </Label>
+                <Label translation="[0, 154]" text="Informe a chave vinculada a este dispositivo." color="0x9AA3B2FF" width="850" height="46">
+                    <Font role="font" uri="font:SystemFont" size="25" />
+                </Label>
+
+                <Keyboard id="codeKeyboard" translation="[0, 235]" width="960" height="360" />
+                <Button id="activateButton" translation="[990, 235]" text="Ativar LC PLAY" minWidth="350" />
+                <Label id="statusLabel" translation="[990, 320]" text="" color="0xFF9489FF" width="540" height="90" wrap="true">
+                    <Font role="font" uri="font:SystemFont" size="22" />
+                </Label>
+            </Group>
+        </Group>
+
+        <Group id="homeLayer" visible="false">
+            <Rectangle width="112" height="1080" color="0x0C0F16FF" />
+            <Label translation="[25, 32]" text="LC" color="0xFFFFFFFF" width="62" height="62" horizAlign="center" vertAlign="center">
+                <Font role="font" uri="font:MediumSystemFont" size="27" />
+            </Label>
+            <Label translation="[166, 44]" text="LC PLAY" color="0xF7F8FAFF" width="320" height="52">
+                <Font role="font" uri="font:MediumSystemFont" size="34" />
+            </Label>
+            <Label id="deviceName" translation="[166, 190]" text="Dispositivo ativado" color="0xF7F8FAFF" width="1200" height="70">
+                <Font role="font" uri="font:MediumSystemFont" size="48" />
+            </Label>
+            <Label translation="[166, 275]" text="Seu conteúdo. Sua tela." color="0x9AA3B2FF" width="760" height="46">
+                <Font role="font" uri="font:SystemFont" size="26" />
+            </Label>
+            <LayoutGroup translation="[166, 400]" layoutDirection="horiz" itemSpacings="[26]">
+                <Button id="liveButton" text="TV ao vivo" minWidth="360" />
+                <Button id="moviesButton" text="Filmes" minWidth="360" />
+                <Button id="seriesButton" text="Séries" minWidth="360" />
+            </LayoutGroup>
+        </Group>
+
+        <ActivateTask id="activateTask" />
+    </children>
+</component>
+

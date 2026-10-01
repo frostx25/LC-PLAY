@@ -1,0 +1,37 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: lc-play-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-lc_play}
+      POSTGRES_USER: ${POSTGRES_USER:-lc_play}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lc_play_local}
+    ports:
+      - "5434:5432"
+    volumes:
+      - lc_play_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lc_play} -d ${POSTGRES_DB:-lc_play}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: lc-play-redis
+    restart: unless-stopped
+    ports:
+      - "6381:6379"
+    volumes:
+      - lc_play_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  lc_play_postgres:
+  lc_play_redis:
+

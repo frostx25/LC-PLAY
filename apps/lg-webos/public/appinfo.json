@@ -1,0 +1,15 @@
+{
+  "id": "com.lcplay.tv",
+  "version": "0.1.0",
+  "vendor": "LC PLAY",
+  "type": "web",
+  "main": "index.html",
+  "title": "LC PLAY",
+  "icon": "icon.png",
+  "largeIcon": "largeIcon.png",
+  "backgroundColor": "#090B10",
+  "transparent": false,
+  "disableBackHistoryAPI": true,
+  "requiredACG": ["deviceinfo.query"]
+}
+
