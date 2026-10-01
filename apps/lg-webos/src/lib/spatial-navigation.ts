@@ -41,8 +41,9 @@ export function useSpatialNavigation(enabled = true) {
     const onKeyDown = (event: KeyboardEvent) => {
       const direction = keyDirections[event.key];
       if (!direction) return;
+      const scope = document.querySelector<HTMLElement>("[aria-modal='true']") ?? document;
       const candidates = Array.from(
-        document.querySelectorAll<HTMLElement>("[data-focusable]:not([disabled])"),
+        scope.querySelectorAll<HTMLElement>("[data-focusable]:not([disabled])"),
       ).filter((element) => element.offsetParent !== null);
       if (!candidates.length) return;
       const current = document.activeElement instanceof HTMLElement ? document.activeElement : candidates[0];

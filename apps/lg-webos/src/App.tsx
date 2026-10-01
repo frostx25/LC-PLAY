@@ -16,6 +16,7 @@ import {
   ChevronRight,
   Clock3,
   Film,
+  Heart,
   KeyRound,
   Layers3,
   LayoutGrid,
@@ -23,6 +24,7 @@ import {
   LoaderCircle,
   LogOut,
   MonitorPlay,
+  Maximize2,
   Play,
   Radio,
   RefreshCw,
@@ -337,7 +339,7 @@ function PlayerExperience({
   onRefresh: () => Promise<void>;
   onDisconnect: () => void;
 }) {
-  const [view, setView] = useState<View>("HOME");
+  const [view, setView] = useState<View>("LIVE");
   const [group, setGroup] = useState("Todos");
   const [page, setPage] = useState(0);
   const [playing, setPlaying] = useState<CatalogItem | null>(null);
@@ -370,7 +372,7 @@ function PlayerExperience({
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      document.querySelector<HTMLElement>("[data-autofocus][data-focusable]")?.focus();
+      document.querySelector<HTMLElement>(playing ? ".player-close" : "[data-autofocus][data-focusable]")?.focus();
     }, 80);
     return () => window.clearTimeout(timer);
   }, [group, page, playing, selectedSeries, view]);
@@ -399,7 +401,19 @@ function PlayerExperience({
           onDisconnect={onDisconnect}
         />
       ) : null}
-      {view === "LIVE" || view === "MOVIE" ? (
+      {view === "LIVE" ? (
+        <LiveTvScreen
+          catalog={catalog}
+          loading={loading}
+          error={error}
+          demo={demo}
+          fullscreenOpen={playing !== null}
+          onOpen={openView}
+          onPlay={setPlaying}
+          onRefresh={onRefresh}
+        />
+      ) : null}
+      {view === "MOVIE" ? (
         <CatalogScreen
           kind={view}
           catalog={catalog}
@@ -516,6 +530,126 @@ function HomeScreen({
       <div className="home-footer">
         <span><Wifi />{catalog?.epg.status === "AVAILABLE" ? "EPG atualizado" : "EPG indisponível"}</span>
         <span>{error || (catalog ? `${formatCount(catalog.summary.total)} itens disponíveis` : loading ? "Carregando sua fonte..." : "Vincule uma fonte no painel")}</span>
+      </div>
+    </section>
+  );
+}
+
+function LiveTvScreen({
+  catalog,
+  loading,
+  error,
+  demo,
+  fullscreenOpen,
+  onOpen,
+  onPlay,
+  onRefresh,
+}: {
+  catalog: DeviceCatalog | null;
+  loading: boolean;
+  error: string;
+  demo: boolean;
+  fullscreenOpen: boolean;
+  onOpen: (view: View) => void;
+  onPlay: (item: CatalogItem) => void;
+  onRefresh: () => Promise<void>;
+}) {
+  const time = useClock();
+  const channels = useMemo(() => catalog?.items.filter((item) => item.kind === "LIVE") ?? [], [catalog]);
+  const groups = useMemo(() => buildGroups(channels, "LIVE"), [channels]);
+  const [group, setGroup] = useState("Todos");
+  const [query, setQuery] = useState("");
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [favorites, setFavorites] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem("lc_play_favorite_channels") ?? "[]") as string[]; }
+    catch { return []; }
+  });
+  const filtered = channels.filter((item) =>
+    (group === "Todos" || cleanGroupLabel(item.group) === group) &&
+    (!favoritesOnly || favorites.includes(item.id)) &&
+    (!query || normalizeText(`${item.name} ${item.now?.title ?? ""}`).includes(normalizeText(query))),
+  );
+  const selected = filtered.find((item) => item.id === selectedId) ?? filtered[0] ?? null;
+
+  function toggleFavorite(id: string) {
+    const next = favorites.includes(id) ? favorites.filter((favorite) => favorite !== id) : [...favorites, id];
+    setFavorites(next);
+    localStorage.setItem("lc_play_favorite_channels", JSON.stringify(next));
+  }
+
+  return (
+    <section className="live-screen">
+      <aside className="live-rail" aria-label="Menu principal">
+        <Brand />
+        <nav>
+          <button data-focusable onClick={() => onOpen("HOME")} title="Início" aria-label="Início"><LayoutGrid /></button>
+          <button data-focusable className="active" title="TV ao vivo" aria-label="TV ao vivo"><Radio /></button>
+          <button data-focusable onClick={() => onOpen("MOVIE")} title="Filmes" aria-label="Filmes"><Film /></button>
+          <button data-focusable onClick={() => onOpen("SERIES")} title="Séries" aria-label="Séries"><Tv /></button>
+        </nav>
+        <button data-focusable className="rail-settings" onClick={() => onOpen("SETTINGS")} title="Configurações" aria-label="Configurações"><Settings /></button>
+      </aside>
+
+      <div className="live-main">
+        <header className="live-topbar">
+          <div><span className="live-eyebrow">LC PLAY / TV AO VIVO</span><strong>Agora na TV</strong></div>
+          <div className="live-topbar-meta"><span>{catalog?.source.name ?? "Sua fonte"}</span><time>{time}</time></div>
+        </header>
+
+        <div className="live-workspace">
+          <aside className="live-categories" aria-label="Categorias de canais">
+            <div className="live-column-heading"><span>CATEGORIAS</span><small>{groups.length - 1}</small></div>
+            <div className="live-category-scroll">
+              {groups.map((name) => (
+                <button key={name} data-focusable className={group === name ? "active" : ""} onClick={() => { setGroup(name); setSelectedId(null); }}>
+                  <span>{name}</span><small>{name === "Todos" ? channels.length : channels.filter((item) => cleanGroupLabel(item.group) === name).length}</small>
+                </button>
+              ))}
+            </div>
+          </aside>
+
+          <section className="live-channel-column" aria-label="Canais">
+            <div className="live-channel-tools">
+              <label className="live-search"><Search size={19} /><input data-focusable value={query} onChange={(event) => { setQuery(event.target.value); setSelectedId(null); }} placeholder="Buscar canal" aria-label="Buscar canal" /></label>
+              <div className="live-filter-row">
+                <button data-focusable className={!favoritesOnly ? "active" : ""} onClick={() => setFavoritesOnly(false)}>Todos</button>
+                <button data-focusable className={favoritesOnly ? "active" : ""} onClick={() => { setFavoritesOnly(true); setSelectedId(null); }}>Favoritos <span>{favorites.length}</span></button>
+              </div>
+            </div>
+            <div className="live-channel-scroll">
+              {filtered.map((item, index) => (
+                <div className={`live-channel-row ${selected?.id === item.id ? "selected" : ""}`} key={item.id}>
+                  <button data-focusable data-autofocus={index === 0 ? "" : undefined} className="live-channel-pick" onClick={() => setSelectedId(item.id)}>
+                    <span className="live-channel-logo"><span>{item.name.slice(0, 2).toUpperCase()}</span>{item.logo ? <img src={item.logo} alt="" loading="lazy" onError={(event) => { event.currentTarget.style.display = "none"; }} /> : null}</span>
+                    <span className="live-channel-label"><strong>{item.name}</strong><small>{item.now?.title ?? cleanGroupLabel(item.group)}</small></span>
+                  </button>
+                  <button data-focusable className={`live-favorite ${favorites.includes(item.id) ? "is-favorite" : ""}`} onClick={() => toggleFavorite(item.id)} aria-label={`${favorites.includes(item.id) ? "Remover" : "Adicionar"} ${item.name} ${favorites.includes(item.id) ? "dos" : "aos"} favoritos`}><Heart fill={favorites.includes(item.id) ? "currentColor" : "none"} /></button>
+                </div>
+              ))}
+              {loading && !catalog ? <p className="live-empty">Carregando canais...</p> : null}
+              {!loading && !filtered.length ? <div className="live-empty"><p>{error || (favoritesOnly ? "Nenhum canal favorito nesta categoria." : "Nenhum canal encontrado.")}</p>{error ? <button data-focusable onClick={() => void onRefresh()}>Tentar novamente</button> : null}</div> : null}
+            </div>
+            <footer className="live-channel-footer">{filtered.length} {filtered.length === 1 ? "canal" : "canais"} nesta seleção</footer>
+          </section>
+
+          <section className="live-feature" aria-label="Canal selecionado">
+            <div className="live-preview">
+              {selected && !demo && selected.streamUrl && !fullscreenOpen ? <StreamVideo key={selected.id} item={selected} /> : <div className="live-preview-art"><span>LC</span><strong>PLAY</strong><p>{selected ? "Selecione para assistir" : "Escolha um canal"}</p></div>}
+              <span className="live-badge">AO VIVO</span>
+              {selected ? <button data-focusable className="live-fullscreen" onClick={() => onPlay(selected)}><Maximize2 size={18} /> Tela cheia</button> : null}
+              <div className="live-preview-shade"><span>{selected ? cleanGroupLabel(selected.group) : "TV ao vivo"}</span><h1>{selected?.name ?? "Sua programação em um só lugar"}</h1></div>
+            </div>
+            <div className="live-programme">
+              <div className="live-programme-title"><span>PROGRAMAÇÃO</span><span>{catalog?.epg.status === "AVAILABLE" ? "EPG disponível" : "Sem EPG"}</span></div>
+              {selected ? <>
+                <div className="live-now"><span>AGORA</span><div><small>{selected.now ? `${formatTime(selected.now.startsAt)} – ${formatTime(selected.now.endsAt)}` : "Horário não informado"}</small><h2>{selected.now?.title ?? "Programação não informada"}</h2><p>{selected.now?.description ?? "Escolha o canal para assistir à transmissão ao vivo."}</p></div></div>
+                <div className="live-progress"><span style={{ width: `${programmeProgress(selected.now)}%` }} /></div>
+                <div className="live-next"><span>A SEGUIR</span><strong>{selected.next ? `${formatTime(selected.next.startsAt)} · ${selected.next.title}` : "Sem informação"}</strong></div>
+              </> : <p className="live-programme-empty">Selecione um canal para ver a programação.</p>}
+            </div>
+          </section>
+        </div>
       </div>
     </section>
   );
@@ -937,16 +1071,15 @@ function CatalogMessage({ icon, title, action }: { icon: ReactNode; title: strin
   return <div className="catalog-message"><span>{icon}</span><h2>{title}</h2>{action}</div>;
 }
 
-function StreamPlayer({ item, onClose }: { item: CatalogItem; onClose: () => void }) {
+function StreamVideo({ item, onError, controls = false }: { item: CatalogItem; onError?: (message: string) => void; controls?: boolean }) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [error, setError] = useState("");
 
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
     let disposed = false;
     let destroyHls: (() => void) | undefined;
-    const handleVideoError = () => setError("Não foi possível reproduzir este conteúdo.");
+    const handleVideoError = () => onError?.("Não foi possível reproduzir este conteúdo.");
     video.addEventListener("error", handleVideoError);
 
     async function start() {
@@ -960,13 +1093,13 @@ function StreamPlayer({ item, onClose }: { item: CatalogItem; onClose: () => voi
       const { default: Hls } = await import("hls.js");
       if (disposed) return;
       if (!Hls.isSupported()) {
-        setError("Este formato de transmissão não é compatível com o aparelho.");
+        onError?.("Este formato de transmissão não é compatível com o aparelho.");
         return;
       }
       const hls = new Hls({ enableWorker: true, lowLatencyMode: false });
       destroyHls = () => hls.destroy();
       hls.on(Hls.Events.ERROR, (_event, data) => {
-        if (data.fatal) setError("A transmissão não respondeu. Tente outro canal.");
+        if (data.fatal) onError?.("A transmissão não respondeu. Tente outro canal.");
       });
       hls.loadSource(item.streamUrl);
       hls.attachMedia(video);
@@ -981,12 +1114,18 @@ function StreamPlayer({ item, onClose }: { item: CatalogItem; onClose: () => voi
       video.removeAttribute("src");
       video.load();
     };
-  }, [item.streamUrl]);
+  }, [item.streamUrl, onError]);
+
+  return <video ref={videoRef} autoPlay controls={controls} muted={!controls} playsInline />;
+}
+
+function StreamPlayer({ item, onClose }: { item: CatalogItem; onClose: () => void }) {
+  const [error, setError] = useState("");
 
   const progress = programmeProgress(item.now);
   return (
     <section className="stream-player" role="dialog" aria-modal="true" aria-label={item.name}>
-      <video ref={videoRef} autoPlay controls playsInline />
+      {item.streamUrl ? <StreamVideo item={item} onError={setError} controls /> : <div className="stream-demo"><Brand /><p>Prévia visual da demonstração</p></div>}
       <button data-focusable data-autofocus className="player-close" onClick={onClose} aria-label="Fechar player"><X /></button>
       <div className="programme-panel">
         <span className="programme-channel"><Radio />{item.name}</span>
@@ -1035,15 +1174,24 @@ function programmeProgress(programme: CatalogItem["now"]) {
 }
 
 function createDemoCatalog(): DeviceCatalog {
-  const items: CatalogItem[] = [
-    ["Jornal LC", "LIVE", "Notícias"],
-    ["Arena Sports", "LIVE", "Esportes"],
-    ["Cinema Brasil", "MOVIE", "Filmes"],
-    ["Aventura+", "MOVIE", "Filmes"],
-    ["Horizonte", "SERIES", "Séries"],
-    ["Cidade 24h", "SERIES", "Séries"],
-  ].map(([name, kind, group], index) => ({
-    id: `demo-${index}`,
+  const entries: Array<[string, CatalogKind, string, string]> = [
+    ["Arena Sports", "LIVE", "Esportes", "Esporte ao vivo"],
+    ["Jornal LC", "LIVE", "Notícias", "Notícias desta hora"],
+    ["Cidade News", "LIVE", "Notícias", "Cidade em pauta"],
+    ["Campo & Jogo", "LIVE", "Esportes", "Resumo da rodada"],
+    ["Cinema LC", "LIVE", "Filmes", "Sessão da tarde"],
+    ["Mundo Kids", "LIVE", "Infantil", "A turma do quintal"],
+    ["Vida Natural", "LIVE", "Documentários", "Planeta vivo"],
+    ["Som Brasil", "LIVE", "Música", "Palco brasileiro"],
+    ["Cozinha+", "LIVE", "Variedades", "Sabores de casa"],
+    ["Viagem 360", "LIVE", "Documentários", "Lugares do mundo"],
+    ["Cinema Brasil", "MOVIE", "Filmes", ""],
+    ["Aventura+", "MOVIE", "Filmes", ""],
+    ["Horizonte", "SERIES", "Séries", ""],
+    ["Cidade 24h", "SERIES", "Séries", ""],
+  ];
+  const items: CatalogItem[] = entries.map(([name, kind, group, programme]) => ({
+    id: `demo-${normalizeText(name).replace(/[^a-z0-9]+/g, "-")}`,
     name,
     kind: kind as CatalogKind,
     group,
@@ -1052,27 +1200,28 @@ function createDemoCatalog(): DeviceCatalog {
     tvgId: null,
     series: kind === "SERIES" ? { title: name, season: 1, episode: 1 } : null,
     now: kind === "LIVE" ? {
-      title: "Programação de demonstração",
-      description: "Prévia visual do LC PLAY.",
+      title: programme,
+      description: "Programação ilustrativa para conferir o layout do LC PLAY.",
       category: group,
       startsAt: new Date(Date.now() - 20 * 60_000).toISOString(),
       endsAt: new Date(Date.now() + 40 * 60_000).toISOString(),
     } : null,
-    next: null,
+    next: kind === "LIVE" ? {
+      title: "Próxima atração",
+      description: null,
+      category: group,
+      startsAt: new Date(Date.now() + 40 * 60_000).toISOString(),
+      endsAt: new Date(Date.now() + 100 * 60_000).toISOString(),
+    } : null,
   }));
   return {
     source: { id: "demo", name: "Demonstração LC PLAY", type: "M3U" },
-    summary: { total: items.length, live: 2, movies: 2, series: 2 },
-    groups: [
-      { name: "Notícias", count: 1 },
-      { name: "Esportes", count: 1 },
-      { name: "Filmes", count: 2 },
-      { name: "Séries", count: 2 },
-    ],
+    summary: { total: items.length, live: 10, movies: 2, series: 2 },
+    groups: Array.from(new Set(entries.map((entry) => entry[2]))).map((name) => ({ name, count: entries.filter((entry) => entry[2] === name).length })),
     items,
     truncated: false,
     refreshedAt: new Date().toISOString(),
-    epg: { status: "AVAILABLE", programmes: 2 },
+    epg: { status: "AVAILABLE", programmes: 20 },
   };
 }
 

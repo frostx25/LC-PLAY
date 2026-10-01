@@ -1,6 +1,14 @@
 # Retomada do LC PLAY
 
-Estado salvo em 30/09/2026. Repositório: https://github.com/frostx25/LC-PLAY.git.
+Estado iniciado em 30/09/2026 e atualizado em 01/10/2026. Repositório: https://github.com/frostx25/LC-PLAY.git.
+
+## Atualização de 01/10/2026
+
+- A TV ao vivo passou a abrir como tela inicial no player LG, com menu lateral, categorias, lista de canais, prévia e programação no mesmo painel.
+- Busca e favoritos de canais foram adicionados ao player. Os favoritos ficam no armazenamento local do aparelho.
+- A prévia usa o stream real quando a fonte está configurada. O modo `?demo` mostra somente arte e programação ilustrativas.
+- A tela foi conferida no navegador em 1280 x 720 e 1920 x 1080; build e lint do player LG passaram. Reprodução em TV LG real continua pendente.
+- Nesta máquina, o checkout está em `C:\Users\leeoc\OneDrive\Documentos\ChatGPT\LCPLAY`. Node e pnpm estão disponíveis; o Docker Desktop estava instalado, mas o serviço não estava ativo. Os arquivos locais de ambiente ainda precisam ser configurados para usar API e banco.
 
 ## Estado atual
 
@@ -29,16 +37,15 @@ Estado salvo em 30/09/2026. Repositório: https://github.com/frostx25/LC-PLAY.gi
 - Fontes Xtream podem ser cadastradas, mas a importação no player ainda aceita somente M3U.
 - A grade atual mostra agora e a seguir; uma grade EPG por horários exige manter a programação completa.
 - Implementar no Roku o catálogo, EPG e experiência equivalente ao player LG.
-- Favoritos, histórico, controle parental efetivo e proxy de reprodução continuam pendentes.
+- Sincronizar favoritos entre aparelhos e implementar histórico, controle parental efetivo e proxy de reprodução continuam pendentes.
 
 ## Abrir nesta máquina
 
-As configurações e os dados locais continuam em `C:\Users\leeoc\Desktop\PROJETOS\tv-player-platform`.
+Este checkout está em `C:\Users\leeoc\OneDrive\Documentos\ChatGPT\LCPLAY`. Para avaliar somente a nova interface LG:
 
 ```powershell
-cd C:\Users\leeoc\Desktop\PROJETOS\tv-player-platform
-pnpm docker:up
-pnpm dev:core
+cd C:\Users\leeoc\OneDrive\Documentos\ChatGPT\LCPLAY
+pnpm --filter @lc-play/lg-webos dev
 ```
 
 - Painel: http://localhost:3000
@@ -46,6 +53,6 @@ pnpm dev:core
 - Player: http://localhost:5173
 - Demonstração: http://localhost:5173/?demo
 
-Não é necessário executar novamente o seed para retomar o banco já preparado. Em uma máquina nova, seguir a instalação do README e configurar os arquivos de ambiente a partir dos exemplos.
+Para executar API e painel nesta máquina, seguir a instalação do README, configurar os arquivos de ambiente a partir dos exemplos e iniciar PostgreSQL/Redis. O banco preparado no ambiente anterior não veio com o repositório.
 
-As alterações foram desenvolvidas somente localmente. Publicação na VM depende de solicitação do proprietário.
+Publicação na VM depende de solicitação do proprietário.
