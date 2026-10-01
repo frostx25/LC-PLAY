@@ -141,6 +141,20 @@ function isOnline(lastSeenAt: string | null) {
   return Boolean(lastSeenAt && Date.now() - new Date(lastSeenAt).getTime() < 5 * 60_000);
 }
 
+function deviceSourcePayload(form: FormData, deviceLabel: string) {
+  if (form.get("sourceMode") === "new") {
+    return { playlist: {
+      name: form.get("sourceName")?.toString().trim() || `Fonte de ${deviceLabel}`.slice(0, 100),
+      type: form.get("sourceType"),
+      sourceUrl: form.get("sourceUrl"),
+      epgUrl: form.get("epgUrl"),
+      username: form.get("username")?.toString() || undefined,
+      password: form.get("password")?.toString() || undefined,
+    } };
+  }
+  return { playlistId: form.get("sourceMode") === "existing" ? form.get("playlistId") : null };
+}
+
 export function AdminView({ section }: { section: Section }) {
   const router = useRouter();
   const [summary, setSummary] = useState(emptySummary);
@@ -289,7 +303,7 @@ export function AdminView({ section }: { section: Section }) {
           label: form.get("label"),
           platform: form.get("platform"),
           customerId: form.get("customerId"),
-          playlistId: form.get("playlistId") || null,
+          ...deviceSourcePayload(form, form.get("label")?.toString() ?? "Dispositivo"),
           expiresAt: expiration ? new Date(expiration).toISOString() : null,
           parentalPin: form.get("parentalPin") || null,
         }),
@@ -323,15 +337,15 @@ export function AdminView({ section }: { section: Section }) {
     event.preventDefault();
     if (!selectedDevice) return;
     const form = new FormData(event.currentTarget);
-    const playlistId = form.get("playlistId")?.toString() || null;
+    const source = deviceSourcePayload(form, selectedDevice.label);
     await run(async () => {
       await api(`admin/devices/${selectedDevice.id}`, {
         method: "PATCH",
-        body: JSON.stringify({ playlistId }),
+        body: JSON.stringify(source),
       });
       setDialog(null);
       setSelectedDevice(null);
-    }, playlistId ? "Fonte vinculada ao dispositivo." : "Fonte removida do dispositivo.");
+    }, source.playlist || source.playlistId ? "Fonte vinculada ao dispositivo." : "Fonte removida do dispositivo.");
   }
 
   async function toggleDevice(device: Device) {
@@ -378,7 +392,7 @@ export function AdminView({ section }: { section: Section }) {
 
   return (
     <>
-      {error ? (
+      {error && dialog !== "device" && dialog !== "device-source" ? (
         <div className="alert alert-error" role="alert">
           <span>{error}</span>
           <button className="icon-button" onClick={() => setError("")} aria-label="Fechar aviso"><X size={17} /></button>
@@ -476,14 +490,13 @@ export function AdminView({ section }: { section: Section }) {
       {dialog === "device" ? (
         <Modal title="Novo dispositivo" icon={<MonitorPlay size={20} />} onClose={() => setDialog(null)}>
           <form className="dialog-form" onSubmit={submitDevice}>
+            {error ? <div className="alert alert-error" role="alert">{error}</div> : null}
             <div className="form-grid">
               <Field label="Identificação" name="label" placeholder="Sala, cliente ou unidade" required autoFocus />
               <label className="field"><span>Plataforma</span><select name="platform" defaultValue="LG_WEBOS"><option value="LG_WEBOS">LG webOS</option><option value="ROKU">Roku</option></select></label>
             </div>
-            <div className="form-grid">
-              <label className="field"><span>Cliente</span><select name="customerId" required defaultValue=""><option value="" disabled>Selecione</option>{customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}</select></label>
-              <label className="field"><span>Fonte vinculada</span><select name="playlistId" defaultValue=""><option value="">Sem fonte</option>{playlists.map((playlist) => <option key={playlist.id} value={playlist.id}>{playlist.name}</option>)}</select></label>
-            </div>
+            <label className="field"><span>Cliente</span><select name="customerId" required defaultValue=""><option value="" disabled>Selecione</option>{customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}</select></label>
+            <DeviceSourceFields playlists={playlists} />
             <div className="form-grid">
               <Field label="Validade" name="expiresAt" type="datetime-local" />
               <Field label="PIN parental" name="parentalPin" inputMode="numeric" pattern="[0-9]{4}" maxLength={4} placeholder="4 dígitos" />
@@ -494,17 +507,12 @@ export function AdminView({ section }: { section: Section }) {
       ) : null}
 
       {dialog === "device-source" && selectedDevice ? (
-        <Modal title="Fonte do dispositivo" icon={<Link2 size={20} />} onClose={() => { setDialog(null); setSelectedDevice(null); }} compact>
+        <Modal title="Fonte do dispositivo" icon={<Link2 size={20} />} onClose={() => { setDialog(null); setSelectedDevice(null); }}>
           <form className="dialog-form" onSubmit={submitDeviceSource}>
+            {error ? <div className="alert alert-error" role="alert">{error}</div> : null}
             <p className="activation-device">{selectedDevice.label}</p>
-            <label className="field">
-              <span>Fonte vinculada</span>
-              <select name="playlistId" defaultValue={selectedDevice.playlist?.id ?? ""} autoFocus>
-                <option value="">Sem fonte vinculada</option>
-                {playlists.map((playlist) => <option key={playlist.id} value={playlist.id}>{playlist.name}</option>)}
-              </select>
-            </label>
-            <DialogActions saving={saving} onCancel={() => { setDialog(null); setSelectedDevice(null); }} label="Salvar vínculo" />
+            <DeviceSourceFields playlists={playlists} currentPlaylistId={selectedDevice.playlist?.id} />
+            <DialogActions saving={saving} onCancel={() => { setDialog(null); setSelectedDevice(null); }} label="Salvar fonte do dispositivo" />
           </form>
         </Modal>
       ) : null}
@@ -529,6 +537,37 @@ export function AdminView({ section }: { section: Section }) {
         </Modal>
       ) : null}
     </>
+  );
+}
+
+function DeviceSourceFields({ playlists, currentPlaylistId }: { playlists: Playlist[]; currentPlaylistId?: string }) {
+  const [mode, setMode] = useState(currentPlaylistId ? "existing" : "new");
+  const [type, setType] = useState("M3U");
+  return (
+    <fieldset className="device-source-fields">
+      <legend>Fonte do dispositivo</legend>
+      <label className="field"><span>Como deseja adicionar a fonte?</span>
+        <select name="sourceMode" value={mode} onChange={(event) => setMode(event.target.value)}>
+          <option value="new">Cadastrar fonte agora</option>
+          <option value="existing" disabled={!playlists.length}>Usar fonte cadastrada</option>
+          <option value="none">Sem fonte por enquanto</option>
+        </select>
+      </label>
+      {mode === "existing" ? <label className="field"><span>Fonte cadastrada</span><select name="playlistId" required defaultValue={currentPlaylistId ?? ""}><option value="" disabled>Selecione uma fonte</option>{playlists.map((playlist) => <option key={playlist.id} value={playlist.id}>{playlist.name}</option>)}</select></label> : null}
+      {mode === "new" ? <>
+        <div className="form-grid">
+          <Field label="Nome da fonte (opcional)" name="sourceName" minLength={2} maxLength={100} placeholder="Usar identificação do dispositivo" />
+          <label className="field"><span>Tipo da fonte</span><select name="sourceType" value={type} onChange={(event) => setType(event.target.value)}><option value="M3U">M3U</option><option value="XTREAM">Xtream</option></select></label>
+        </div>
+        <Field label={type === "M3U" ? "URL da lista M3U" : "URL do servidor Xtream"} name="sourceUrl" type="url" placeholder="https://" required />
+        <Field label="URL do EPG (opcional)" name="epgUrl" type="url" placeholder="https://" />
+        {type === "XTREAM" ? <div className="form-grid">
+          <Field label="Usuário Xtream" name="username" required autoComplete="off" />
+          <Field label="Senha Xtream" name="password" type="password" required autoComplete="new-password" />
+        </div> : null}
+        <p className="source-help">A fonte será salva e vinculada a este dispositivo ao confirmar.</p>
+      </> : null}
+    </fieldset>
   );
 }
 

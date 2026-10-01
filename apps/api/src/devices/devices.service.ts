@@ -26,6 +26,13 @@ import {
 import { parseBody } from "../common/parse";
 import { PrismaService } from "../prisma/prisma.service";
 import type { DevicePrincipal } from "./device-token.guard";
+import type { CreatePlaylistInput } from "@lc-play/contracts";
+import { encryptedPlaylistData } from "../playlists/playlist-data";
+
+const deviceRelations = {
+  customer: true,
+  playlist: { select: { id: true, name: true, type: true, status: true } },
+} as const;
 
 @Injectable()
 export class DevicesService {
@@ -56,24 +63,31 @@ export class DevicesService {
     const data = parseBody(createDeviceSchema, input);
     await this.assertRelations(admin.tenantId, data.customerId, data.playlistId);
 
-    const device = await this.prisma.device.create({
-      data: {
-        tenantId: admin.tenantId,
-        customerId: data.customerId,
-        playlistId: data.playlistId,
-        label: data.label,
-        platform: data.platform,
-        expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,
-        parentalPinHash: data.parentalPin ? await hashPassword(data.parentalPin) : null,
-      },
-      include: { customer: true, playlist: true },
-    });
+    const parentalPinHash = data.parentalPin ? await hashPassword(data.parentalPin) : null;
+    return this.prisma.$transaction(async (tx) => {
+      const playlistId = data.playlist
+        ? await this.createInlinePlaylist(tx, admin, data.playlist)
+        : data.playlistId;
+      const device = await tx.device.create({
+        data: {
+          tenantId: admin.tenantId,
+          customerId: data.customerId,
+          playlistId,
+          label: data.label,
+          platform: data.platform,
+          expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,
+          parentalPinHash,
+        },
+        include: deviceRelations,
+      });
 
-    await this.audit(admin, "device.created", "Device", device.id, {
-      label: device.label,
-      platform: device.platform,
+      await tx.auditLog.create({ data: {
+        tenantId: admin.tenantId, actorType: "ADMIN", actorId: admin.sub,
+        action: "device.created", entityType: "Device", entityId: device.id,
+        metadata: { label: device.label, platform: device.platform },
+      } });
+      return this.sanitizeDevice(device);
     });
-    return this.sanitizeDevice(device);
   }
 
   async update(admin: AdminTokenPayload, deviceId: string, input: unknown) {
@@ -83,25 +97,44 @@ export class DevicesService {
       await this.assertRelations(admin.tenantId, current.customerId, data.playlistId);
     }
 
-    const device = await this.prisma.device.update({
-      where: { id: deviceId },
-      data: {
-        label: data.label,
-        playlistId: data.playlistId,
-        status: data.status,
-        expiresAt: data.expiresAt === undefined ? undefined : data.expiresAt ? new Date(data.expiresAt) : null,
-        parentalPinHash:
-          data.parentalPin === undefined
-            ? undefined
-            : data.parentalPin
-              ? await hashPassword(data.parentalPin)
-              : null,
-      },
-      include: { customer: true, playlist: true },
-    });
+    const parentalPinHash = data.parentalPin === undefined
+      ? undefined : data.parentalPin ? await hashPassword(data.parentalPin) : null;
+    return this.prisma.$transaction(async (tx) => {
+      const playlistId = data.playlist
+        ? await this.createInlinePlaylist(tx, admin, data.playlist)
+        : data.playlistId;
+      const device = await tx.device.update({
+        where: { id: deviceId },
+        data: {
+          label: data.label,
+          playlistId,
+          status: data.status,
+          expiresAt: data.expiresAt === undefined ? undefined : data.expiresAt ? new Date(data.expiresAt) : null,
+          parentalPinHash,
+        },
+        include: deviceRelations,
+      });
 
-    await this.audit(admin, "device.updated", "Device", device.id, { fields: Object.keys(data) });
-    return this.sanitizeDevice(device);
+      await tx.auditLog.create({ data: {
+        tenantId: admin.tenantId, actorType: "ADMIN", actorId: admin.sub,
+        action: "device.updated", entityType: "Device", entityId: device.id,
+        metadata: { fields: Object.keys(data) },
+      } });
+      return this.sanitizeDevice(device);
+    });
+  }
+
+  private async createInlinePlaylist(tx: Prisma.TransactionClient, admin: AdminTokenPayload, playlist: CreatePlaylistInput) {
+    const source = await tx.playlist.create({
+      data: encryptedPlaylistData(admin.tenantId, playlist, this.config.getOrThrow<string>("DATA_ENCRYPTION_KEY")),
+      select: { id: true, name: true, type: true },
+    });
+    await tx.auditLog.create({ data: {
+      tenantId: admin.tenantId, actorType: "ADMIN", actorId: admin.sub,
+      action: "playlist.created", entityType: "Playlist", entityId: source.id,
+      metadata: { name: source.name, type: source.type },
+    } });
+    return source.id;
   }
 
   async remove(admin: AdminTokenPayload, deviceId: string) {

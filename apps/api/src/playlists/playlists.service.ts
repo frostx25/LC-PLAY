@@ -5,6 +5,7 @@ import { encryptSecret } from "../common/crypto";
 import { parseBody } from "../common/parse";
 import type { AdminTokenPayload } from "../common/types";
 import { PrismaService } from "../prisma/prisma.service";
+import { encryptedPlaylistData } from "./playlist-data";
 
 @Injectable()
 export class PlaylistsService {
@@ -36,15 +37,7 @@ export class PlaylistsService {
     const data = parseBody(createPlaylistSchema, input);
     const encryptionKey = this.config.getOrThrow<string>("DATA_ENCRYPTION_KEY");
     const playlist = await this.prisma.playlist.create({
-      data: {
-        tenantId: admin.tenantId,
-        name: data.name,
-        type: data.type,
-        sourceUrlEncrypted: encryptSecret(data.sourceUrl, encryptionKey),
-        epgUrlEncrypted: data.epgUrl ? encryptSecret(data.epgUrl, encryptionKey) : null,
-        usernameEncrypted: data.username ? encryptSecret(data.username, encryptionKey) : null,
-        passwordEncrypted: data.password ? encryptSecret(data.password, encryptionKey) : null,
-      },
+      data: encryptedPlaylistData(admin.tenantId, data, encryptionKey),
       select: {
         id: true,
         name: true,

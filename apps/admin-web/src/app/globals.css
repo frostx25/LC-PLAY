@@ -253,7 +253,7 @@ button:disabled { cursor: not-allowed; opacity: 0.58; }
 .section-heading h2 { margin: 0; font-size: 16px; }
 .section-heading p { margin: 4px 0 0; color: var(--ink-soft); font-size: 12px; }
 
-.table-scroll { width: 100%; overflow-x: auto; }
+.table-scroll { position: relative; width: 100%; overflow-x: auto; }
 table { width: 100%; min-width: 820px; border-collapse: collapse; }
 th, td { padding: 13px 16px; border-bottom: 1px solid #eceef2; text-align: left; vertical-align: middle; white-space: nowrap; }
 th { background: var(--surface-muted); color: #727a88; font-size: 10px; font-weight: 760; text-transform: uppercase; }
@@ -316,6 +316,9 @@ tbody tr:hover td { background: #fbfcfe; }
 .modal h2 { margin: 0; font-size: 17px; }
 .dialog-form { padding: 20px; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.device-source-fields { display: grid; gap: 14px; min-width: 0; margin: 0; padding: 16px; border: 1px solid var(--line); border-radius: 8px; }
+.device-source-fields legend { padding: 0 6px; font-size: 13px; font-weight: 700; }
+.source-help { margin: 0; color: var(--ink-soft); font-size: 12px; line-height: 1.5; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 9px; padding-top: 18px; border-top: 1px solid var(--line); }
 .activation-dialog { display: grid; justify-items: center; gap: 18px; padding: 34px 24px 28px; }
 .activation-device { margin: 0; color: var(--ink-soft); font-weight: 650; }

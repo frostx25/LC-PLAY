@@ -56,16 +56,26 @@ export const createDeviceSchema = z.object({
   platform: devicePlatformSchema,
   customerId: z.string().trim().min(1),
   playlistId: z.string().trim().min(1).optional().nullable(),
+  playlist: createPlaylistSchema.optional(),
   expiresAt: z.string().datetime().optional().nullable(),
   parentalPin: z.string().regex(/^\d{4}$/).optional().nullable(),
+}).superRefine((value, context) => {
+  if (value.playlist && value.playlistId) {
+    context.addIssue({ code: "custom", message: "Escolha uma fonte cadastrada ou cadastre uma nova fonte.", path: ["playlistId"] });
+  }
 });
 
 export const updateDeviceSchema = z.object({
   label: z.string().trim().min(2).max(80).optional(),
   playlistId: z.string().trim().min(1).nullable().optional(),
+  playlist: createPlaylistSchema.optional(),
   status: deviceStatusSchema.optional(),
   expiresAt: z.string().datetime().nullable().optional(),
   parentalPin: z.string().regex(/^\d{4}$/).nullable().optional(),
+}).superRefine((value, context) => {
+  if (value.playlist && value.playlistId !== undefined) {
+    context.addIssue({ code: "custom", message: "Escolha uma fonte cadastrada ou cadastre uma nova fonte.", path: ["playlistId"] });
+  }
 });
 
 export const issueActivationSchema = z.object({

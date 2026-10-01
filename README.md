@@ -27,6 +27,8 @@ Preview visual sem ativação: `http://localhost:5173/?demo`
 
 O player organiza fontes M3U em TV ao vivo, filmes e séries. A TV ao vivo possui grade EPG com programa atual e próximo; séries são agrupadas por título, temporada e episódio. URLs e credenciais podem ser substituídas pelo painel sem exibir os valores já armazenados.
 
+No painel, **Novo dispositivo** permite informar uma lista M3U e seu EPG ou os dados Xtream no mesmo formulário. A fonte é cadastrada e vinculada automaticamente ao salvar, com geração da chave de ativação. **Alterar fonte** também permite cadastrar uma nova fonte diretamente em um dispositivo existente. É possível escolher uma fonte já cadastrada ou deixar o dispositivo sem fonte. Fonte e vínculo são salvos na mesma transação; trocar a fonte preserva a anterior para os demais dispositivos.
+
 O administrador inicial usa o e-mail e a senha definidos em `SEED_ADMIN_EMAIL` e `SEED_ADMIN_PASSWORD` no ambiente da API. As configurações locais, credenciais e bancos de desenvolvimento não são enviados ao repositório.
 
 A migração inicial do PostgreSQL está versionada em `apps/api/prisma/migrations`.
