@@ -1,0 +1,33 @@
+id,area,teste,status,evidencia,proxima_acao
+LG-01,Publicacao,Cadastro Seller Lounge,PENDENTE,Nenhum cadastro realizado,Confirmar modalidade e dados do vendedor
+LG-02,Publicacao,ID definitivo,PENDENTE,Manifesto com.lcplay.tv,Confirmar antes de publicar
+LG-03,Publicacao,Backend publico HTTPS,BLOQUEADO,Ambiente atual local,Implantar somente com autorizacao
+LG-04,Publicacao,Ativacao para avaliadores,BLOQUEADO,Chave temporaria de uso unico ate 24 horas,Definir fluxo para fila de avaliacao
+LG-05,Publicacao,Textos e preco,PENDENTE,Rascunho loja.md,Revisar e definir modelo comercial
+LG-06,Publicacao,Icone de loja,PREPARADO_PENDENTE_APROVACAO,PNG 400x400 gerado a partir da marca,Revisar ativo gerado
+LG-07,Publicacao,Splash,IMPLEMENTADO_PENDENTE_TV,PNG 1920x1080 integrado ao manifesto com cor de fundo e teste automatico,Validar carregamento no pacote final na TV
+LG-08,Publicacao,Screenshots finais,PENDENTE,Previews internas 1920x1080 geradas no Edge sem dados reais,Recapturar versao final na TV ou conforme requisito do Seller Lounge
+LG-09,Legal,Politica de privacidade publica,BLOQUEADO,Rascunho privacidade.md,Revisar retencao operadores e local de hospedagem
+LG-10,Legal,Termos e suporte publicos,BLOQUEADO,Rascunho termos.md,Aprovar textos e publicar paginas
+LG-11,Legal,Contato do responsavel,INFORMADO_PELO_USUARIO,Leonardo Pereira e suportelcplay@gmail.com,Validar recebimento de e-mails
+LG-12,Seguranca,Token no dispositivo,PENDENTE,Token salvo em localStorage,Revisar armazenamento seguro e revogacao
+LG-13,Seguranca,Credenciais de fontes,IMPLEMENTADO_NAO_CERTIFICADO,AES-256-GCM no servidor e hashes para tokens,Auditar pacote logs e configuracao de producao
+LG-14,Seguranca,Permissoes ACG,IMPLEMENTADO_NAO_CERTIFICADO,requiredACG no manifesto,Conferir permissao minima e testar modelos novos
+LG-15,Privacidade,Excluir e exportar dados,PENDENTE,Desconectar nao apaga cliente nem auditoria,Implementar procedimento completo e revisar backups
+LG-16,UX,Ativacao e primeiro uso,PENDENTE,Fluxo existente,Testar fonte QA isolada e chaves invalidas
+LG-17,UX,Setas OK e Back,VALIDADO_TV,Pacote 0.1.0 na C1 em 02/10/2026: setas moveram foco; selecao abriu telas; Back fechou player e retornou ate a Home,Repetir matriz completa com fonte QA no pacote de submissao
+LG-18,UX,Magic Remote ponteiro,PENDENTE,Elementos clicaveis existentes,Validar todas as telas com controle fisico
+LG-19,UX,Back na tela inicial,PENDENTE,Comportamento depende de webOS,Validar criterio da LG nos modelos alvo
+LG-20,Video,Previa com audio,RELATADO_PELO_USUARIO,Usuario confirmou som na LG C1 em 01/10/2026,Repetir com fonte QA e registrar resultado
+LG-21,Video,Tela cheia sem reinicio,VALIDADO_TV,Pacote 0.1.0 na C1: mesmo video avancou de 21.2 s para 39.5 s entre tela cheia e previa sem pausa ou novo carregamento,Repetir com fonte QA no pacote de submissao
+LG-22,Video,HLS e MP4 da fonte QA,VALIDADO_TV_FONTE_LOCAL,HLS ao vivo e MP4 de filme e episodio reproduziram na C1; fixture QA passou no navegador,Repetir ambos na TV com fonte QA isolada
+LG-23,Video,EPG atual e proximo,VALIDADO_TV_COM_EPG,C1 exibiu programa atual proximo horario e descricao no pacote 0.1.0,Testar tambem uma fonte QA sem EPG
+LG-24,Video,Filmes e episodios,VALIDADO_TV,Filme 1920x1012 e episodio 1280x640 chegaram a readyState 4 e reproduziram sem erro na C1,Repetir com fonte QA isolada
+LG-25,Resiliencia,Sem rede e reconexao,PARCIAL_VALIDADO_TV,Queda e retorno da API foram validados sem perda de ativacao; rede total ainda nao foi interrompida,Executar teste com rede da TV indisponivel
+LG-26,Resiliencia,API sem resposta,VALIDADO_TV,LG C1 em 02/10/2026: timeout de 15 s abriu a Home preservando token; Atualizar recuperou 306 mil itens e EPG apos retorno da API,Repetir no pacote de submissao com backend publico
+LG-27,Resiliencia,Suspenso vencido e sem fonte,PENDENTE,Estados existem no backend,Testar apenas dispositivo QA
+LG-28,Resiliencia,Suspensao e retomada,PENDENTE,Nao validado para certificacao,Executar Home standby e relaunch
+LG-29,Desempenho,Reproducao prolongada,PENDENTE,Teste tecnico curto nao prova estabilidade,Medir memoria CPU e video por sessao longa
+LG-30,Compatibilidade,Outras versoes webOS,PENDENTE,C1 webOS 6.5.3 nao representa todos os modelos,Definir suporte e testar modelos alvo
+LG-31,Conteudo,Direitos da fonte QA,PREPARADO,Padroes visuais e tom sintetico sem midia de terceiros,Revisar assets e fonte antes de submeter
+LG-32,Publicacao,Checklist oficial e UX Scenario,RASCUNHO_OFICIAL_GERADO,Planilha oficial 5.0 preenchida como rascunho em outputs e roteiro bilingue documentado,Transcrever UX Scenario e finalizar resultados apos fonte QA e backend publico

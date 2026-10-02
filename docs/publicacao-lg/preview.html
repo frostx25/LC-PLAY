@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" href="/assets/store-icon-400.png">
+  <title>LC PLAY | Fonte QA local</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #f4f6f8; color: #18202a; font-family: system-ui, sans-serif; line-height: 1.6; }
+    header { background: #11151b; color: white; border-bottom: 4px solid #ff6656; }
+    .inner { max-width: 1050px; margin: auto; padding: 24px; }
+    .brand { display: flex; align-items: center; gap: 16px; }
+    .brand img { width: 64px; height: 64px; }
+    h1 { margin: 0; font-size: 26px; }
+    h2 { font-size: 20px; }
+    p { margin: 8px 0 16px; }
+    .status { color: #c4ceda; margin: 0; font-size: 14px; }
+    .notice { padding: 12px 16px; border-left: 4px solid #b85834; background: #fff1e9; }
+    section { padding: 12px 0 24px; border-bottom: 1px solid #ccd4dc; }
+    a { color: #2153b8; text-underline-offset: 3px; }
+    a:focus-visible { outline: 3px solid #2153b8; outline-offset: 4px; }
+    video { display: block; width: 100%; aspect-ratio: 16/9; background: #11151b; }
+    .assets { display: grid; grid-template-columns: 160px minmax(0, 1fr); align-items: start; gap: 24px; }
+    .assets img { max-width: 100%; height: auto; }
+    .assets .splash { width: 100%; aspect-ratio: 16/9; object-fit: contain; }
+    li { margin: 6px 0; overflow-wrap: anywhere; }
+    @media (max-width: 540px) { .inner { padding: 18px; } .assets { grid-template-columns: 1fr; } .assets .icon { width: 120px; } }
+  </style>
+</head>
+<body>
+  <header><div class="inner brand"><img src="/assets/store-icon-400.png" alt="Símbolo LC PLAY"><div><h1>LC PLAY</h1><p class="status">Fonte técnica QA · Somente local · Não submetido à LG</p></div></div></header>
+  <main class="inner">
+    <p class="notice">Esta fonte não altera sua TV ou banco de dados. O vídeo contém padrões de teste e um tom de áudio: comece com o volume baixo.</p>
+    <section>
+      <h2>Fonte e programação</h2>
+      <ul>
+        <li><a href="/playlist.m3u">Lista M3U de teste</a></li>
+        <li><a href="/epg.xml">EPG XMLTV dinâmico</a></li>
+        <li><a href="/media/clip.m3u8">Clipe técnico HLS</a></li>
+        <li><a href="/rights.json">Procedência e hash da mídia</a></li>
+      </ul>
+      <p>Seis itens técnicos para navegação: dois canais de teste, dois filmes e dois episódios. Eles reutilizam intencionalmente o mesmo clipe; o EPG é ilustrativo e não representa uma emissão ao vivo.</p>
+    </section>
+    <section>
+      <h2>Imagem e áudio de teste</h2>
+      <video controls preload="metadata" poster="/assets/splash-candidate-1920.png" src="/media/sample.mp4"></video>
+    </section>
+    <section>
+      <h2>Candidatos de marca para a loja</h2>
+      <div class="assets"><img class="icon" src="/assets/store-icon-400.png" alt="Ícone candidato 400 por 400"><img class="splash" src="/assets/splash-candidate-1920.png" alt="Splash candidato LC PLAY"></div>
+      <p>O ícone de loja continua separado. O mesmo splash candidato agora está integrado ao manifesto do pacote local e ainda precisa ser validado na TV.</p>
+    </section>
+    <section>
+      <h2>Páginas legais em revisão</h2>
+      <ul>
+        <li><a href="/legal/">Suporte</a></li>
+        <li><a href="/legal/privacidade">Política de privacidade</a></li>
+        <li><a href="/legal/termos">Termos de uso</a></li>
+      </ul>
+      <p>Estas páginas estão marcadas como rascunho e não são URLs públicas. O bloqueio de publicação permanece até a aprovação dos textos e da infraestrutura definitiva.</p>
+    </section>
+    <footer><p>Leonardo Pereira · <a href="mailto:suportelcplay@gmail.com">suportelcplay@gmail.com</a></p><p>Privacidade, termos, acesso dos avaliadores e infraestrutura pública permanecem pendentes de aprovação.</p></footer>
+  </main>
+</body>
+</html>

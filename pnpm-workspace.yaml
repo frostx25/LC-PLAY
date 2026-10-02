@@ -9,6 +9,7 @@ allowBuilds:
   "@webos-tools/cli": true
   "cpu-features": false
   "esbuild": true
+  "ffmpeg-static": true
   "prisma": true
   "sharp": true
   "ssh2": true

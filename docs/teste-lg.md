@@ -94,3 +94,15 @@ Verificado na LG C1 durante o teste com limite de 120 segundos: a primeira tenta
 Verificado no navegador local em 1920x1080, 1280x720 e 390x844, além da LG OLED C1 em 1920x1080. Na TV, os pôsteres carregaram e o vídeo ao vivo reportou readyState 4, resolução 1920x1080 e nenhum erro durante o teste. Confirme imagem e áudio fisicamente no aparelho.
 
 Na transição de prévia para tela cheia, a LG preservou o mesmo elemento de vídeo e a mesma URL, com zero eventos de loadstart, emptied ou pause. O tempo da transmissão continuou avançando. O comando Voltar (461) restaurou a prévia e o foco no canal, sem interromper o vídeo; três ciclos adicionais de ampliar/voltar também mantiveram a reprodução.
+
+## Pacote final local e resiliência (02/10/2026)
+
+- Pacote: `com.lcplay.tv_0.1.0_all.ipk`.
+- SHA-256: `6C8823C6984907E7301E7549BA74E99F41B62D021B2EC1D2B791A58864485E1F`.
+- Com a API local desligada, a configuração encerrou em 15 segundos, abriu a Home com mensagem de nova tentativa e preservou o token do dispositivo. Não voltou à ativação.
+- Após a API retornar, o botão `Atualizar` recuperou 306 mil itens, 2.777 canais e o EPG no mesmo processo, sem reinstalação ou reativação.
+- Setas alteraram o foco visível. As seleções abriram TV ao vivo, Filmes e Séries; Back fechou reprodução, voltou ao catálogo e retornou à Home.
+- O EPG exibiu programa atual, próximo programa, horários e descrição. O vídeo ao vivo informou `readyState 4`, reprodução ativa e resolução 1920 × 1080.
+- Na ampliação, o mesmo vídeo avançou de 21,2 s para 39,5 s e voltou à prévia sem pausar ou trocar a mídia. A camada de vídeo por hardware fica preta na captura do DevTools; imagem e som foram confirmados fisicamente em testes anteriores.
+- Um filme informou `readyState 4`, reprodução ativa e resolução 1920 × 1012. Um episódio informou `readyState 4`, reprodução ativa e resolução 1280 × 640.
+- O teste usou a fonte local já vinculada e não alterou suas credenciais. A submissão ainda exige repetir os casos com a fonte QA isolada e o backend público HTTPS.

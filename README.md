@@ -35,6 +35,8 @@ A migração inicial do PostgreSQL está versionada em `apps/api/prisma/migratio
 
 O estado atual e os próximos passos estão em [docs/retomada.md](docs/retomada.md).
 
+O kit local de preparação para a LG Content Store está em [docs/publicacao-lg/README.md](docs/publicacao-lg/README.md). Inclui textos da loja, rascunhos de privacidade e termos, roteiro de avaliação, checklist e uma fonte técnica isolada. Não representa publicação nem aprovação pela LG.
+
 ## Princípios
 
 - O administrador é o único responsável por cadastrar fontes e vinculá-las a dispositivos.

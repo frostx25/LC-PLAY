@@ -1,0 +1,172 @@
+:root {
+  color-scheme: dark;
+  --background: #090b10;
+  --surface: #111722;
+  --surface-strong: #172131;
+  --text: #f7f8fa;
+  --muted: #aeb9c8;
+  --line: #2b394d;
+  --accent: #ff6656;
+  --link: #8db5ff;
+  font-family: "Segoe UI", Tahoma, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html { background: var(--background); }
+
+body {
+  margin: 0;
+  min-width: 280px;
+  background: var(--background);
+  color: var(--text);
+  font-size: 17px;
+  line-height: 1.72;
+}
+
+a { color: var(--link); text-underline-offset: 4px; }
+a:hover { color: #c8d9ff; }
+a:focus-visible { outline: 3px solid var(--text); outline-offset: 4px; }
+
+.site-header {
+  border-bottom: 1px solid var(--line);
+  background: #0c1119;
+}
+
+.header-inner,
+.page,
+.site-footer-inner {
+  width: min(1120px, calc(100% - 48px));
+  margin: 0 auto;
+}
+
+.header-inner {
+  min-height: 88px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  color: var(--text);
+  font-size: 21px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.brand img { width: 48px; height: 48px; border-radius: 8px; }
+.brand span { color: #9ebaff; }
+
+.site-nav { display: flex; align-items: center; gap: 24px; }
+.site-nav a { color: var(--muted); font-size: 15px; font-weight: 700; text-decoration: none; }
+.site-nav a[aria-current="page"],
+.site-nav a:hover { color: var(--text); }
+
+.draft-bar {
+  border-bottom: 1px solid #794037;
+  background: #2a1717;
+  color: #ffd2cb;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-align: center;
+  padding: 10px 24px;
+}
+
+.page { padding: 68px 0 96px; }
+
+.eyebrow {
+  display: block;
+  margin-bottom: 14px;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+h1,
+h2 {
+  font-family: Georgia, "Times New Roman", serif;
+  letter-spacing: 0;
+  text-wrap: balance;
+}
+
+h1 {
+  max-width: 840px;
+  margin: 0;
+  font-size: clamp(40px, 6vw, 74px);
+  line-height: 1.02;
+}
+
+.lead {
+  max-width: 760px;
+  margin: 24px 0 0;
+  color: var(--muted);
+  font-size: 21px;
+}
+
+.contact-line {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 36px 0 0;
+  padding: 24px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.contact-line strong { min-width: 180px; }
+.contact-line a { overflow-wrap: anywhere; font-size: 20px; font-weight: 800; }
+
+.content-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 72px;
+  align-items: start;
+  margin-top: 64px;
+}
+
+.article { min-width: 0; }
+.article section { padding: 0 0 40px; margin-bottom: 40px; border-bottom: 1px solid var(--line); }
+.article section:last-child { margin-bottom: 0; }
+.article h2 { margin: 0 0 14px; font-size: 30px; line-height: 1.2; }
+.article p { margin: 0 0 16px; color: #d8dee8; }
+.article ul { margin: 0; padding-left: 22px; color: #d8dee8; }
+.article li + li { margin-top: 10px; }
+
+.summary {
+  position: sticky;
+  top: 24px;
+  padding: 22px 0;
+  border-top: 3px solid var(--accent);
+  border-bottom: 1px solid var(--line);
+}
+
+.summary strong { display: block; margin-bottom: 10px; }
+.summary p { margin: 0; color: var(--muted); font-size: 14px; }
+.summary p + p { margin-top: 14px; }
+
+.site-footer { border-top: 1px solid var(--line); background: #0c1119; }
+.site-footer-inner { display: flex; justify-content: space-between; gap: 24px; padding: 28px 0; color: var(--muted); font-size: 14px; }
+.site-footer p { margin: 0; }
+
+@media (max-width: 760px) {
+  .header-inner,
+  .page,
+  .site-footer-inner { width: min(100% - 32px, 1120px); }
+  .header-inner { min-height: 76px; align-items: flex-start; flex-direction: column; justify-content: center; padding: 14px 0; }
+  .site-nav { width: 100%; gap: 16px; overflow-x: auto; padding-bottom: 3px; }
+  .site-nav a { white-space: nowrap; }
+  .page { padding: 48px 0 72px; }
+  h1 { font-size: 42px; }
+  .lead { font-size: 18px; }
+  .contact-line { align-items: flex-start; flex-direction: column; gap: 6px; }
+  .content-layout { grid-template-columns: 1fr; gap: 44px; margin-top: 48px; }
+  .summary { position: static; grid-row: 1; }
+  .site-footer-inner { flex-direction: column; }
+}

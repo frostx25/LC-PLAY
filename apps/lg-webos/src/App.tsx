@@ -34,6 +34,8 @@ import {
   Tv,
   Wifi,
 } from "lucide-react";
+import { isAuthenticationFailure, request } from "./lib/device-api";
+import { APP_VERSION } from "./lib/release";
 import { getLgDeviceIdentity } from "./lib/webos";
 import { useSpatialNavigation } from "./lib/spatial-navigation";
 import { CHANNEL_ROW_HEIGHT, virtualChannelRange } from "./lib/virtual-range";
@@ -63,25 +65,10 @@ type SeriesCollection = {
   episodes: CatalogItem[];
 };
 
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:4100";
 const TOKEN_KEY = "lc_play_device_token";
 const PAGE_SIZE = 24;
 const CATALOG_CACHE_MS = 5 * 60_000;
 const clockFormatter = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit" });
-
-async function request<T>(path: string, init?: RequestInit, token?: string): Promise<T> {
-  const response = await fetch(`${API_URL}/api/${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...init?.headers,
-    },
-  });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.message ?? "Não foi possível concluir a operação.");
-  return data as T;
-}
 
 function App() {
   const demo = import.meta.env.DEV && new URLSearchParams(window.location.search).has("demo");
@@ -92,12 +79,28 @@ function App() {
   const [catalog, setCatalog] = useState<DeviceCatalog | null>(() => demo ? createDemoCatalog() : null);
   const [catalogLoading, setCatalogLoading] = useState(!demo);
   const [catalogError, setCatalogError] = useState("");
+  const [connectionError, setConnectionError] = useState("");
   const kindRef = useRef<CatalogKind>("LIVE");
   const loadedKindRef = useRef<CatalogKind | null>(null);
   const catalogRequestRef = useRef<AbortController | null>(null);
   const catalogCacheRef = useRef(new Map<CatalogKind, { catalog: DeviceCatalog; expiresAt: number }>());
 
   useSpatialNavigation(mode !== "loading");
+
+  const clearDeviceSession = useCallback(() => {
+    catalogRequestRef.current?.abort();
+    catalogRequestRef.current = null;
+    catalogCacheRef.current.clear();
+    loadedKindRef.current = null;
+    kindRef.current = "LIVE";
+    localStorage.removeItem(TOKEN_KEY);
+    setConfiguration(null);
+    setCatalog(null);
+    setCatalogLoading(false);
+    setCatalogError("");
+    setConnectionError("");
+    setMode("activation");
+  }, []);
 
   const loadCatalog = useCallback(async (kind = kindRef.current, options: { background?: boolean; force?: boolean } = {}) => {
     if (demo) {
@@ -128,7 +131,7 @@ function App() {
     catalogRequestRef.current = controller;
     setCatalogLoading(true);
     try {
-      const nextCatalog = await request<DeviceCatalog>(`v1/device/catalog?kind=${kind}`, { signal: controller.signal }, token);
+      const nextCatalog = await request<DeviceCatalog>(`v1/device/catalog?kind=${kind}`, { signal: controller.signal }, token, undefined, 100_000);
       if (!controller.signal.aborted) {
         for (const entry of catalogCacheRef.current.values()) {
           if (entry.catalog.source.id !== nextCatalog.source.id) {
@@ -141,14 +144,17 @@ function App() {
         setCatalog(nextCatalog);
       }
     } catch (caught) {
-      if (!controller.signal.aborted) setCatalogError(caught instanceof Error ? caught.message : "Não foi possível carregar o catálogo.");
+      if (!controller.signal.aborted) {
+        if (isAuthenticationFailure(caught)) clearDeviceSession();
+        else setCatalogError(caught instanceof Error ? caught.message : "Não foi possível carregar o catálogo.");
+      }
     } finally {
       if (catalogRequestRef.current === controller) {
         catalogRequestRef.current = null;
         setCatalogLoading(false);
       }
     }
-  }, [demo]);
+  }, [clearDeviceSession, demo]);
 
   const refreshAll = useCallback(async () => {
     if (demo) return loadCatalog();
@@ -157,8 +163,9 @@ function App() {
     setCatalogLoading(true);
     setCatalogError("");
     try {
-      const nextConfiguration = await request<Configuration>("v1/device/configuration", undefined, token);
+      const nextConfiguration = await request<Configuration>("v1/device/configuration", undefined, token, undefined, 15_000);
       setConfiguration(nextConfiguration);
+      setConnectionError("");
       const previousSource = catalogCacheRef.current.values().next().value?.catalog.source.id;
       catalogCacheRef.current.clear();
       if (previousSource && previousSource !== nextConfiguration.playlist?.id) {
@@ -174,11 +181,12 @@ function App() {
         setCatalogError("Nenhuma fonte está vinculada a este dispositivo.");
       }
     } catch (caught) {
-      setCatalogError(caught instanceof Error ? caught.message : "Não foi possível atualizar o conteúdo.");
+      if (isAuthenticationFailure(caught)) clearDeviceSession();
+      else setCatalogError(caught instanceof Error ? caught.message : "Não foi possível atualizar o conteúdo.");
     } finally {
       if (!catalogRequestRef.current) setCatalogLoading(false);
     }
-  }, [demo, loadCatalog]);
+  }, [clearDeviceSession, demo, loadCatalog]);
 
   const changeCatalogKind = useCallback((kind: CatalogKind) => {
     kindRef.current = kind;
@@ -191,9 +199,10 @@ function App() {
     if (demo) return;
     const token = localStorage.getItem(TOKEN_KEY);
     if (!token) return;
-    request<Configuration>("v1/device/configuration", undefined, token)
+    request<Configuration>("v1/device/configuration", undefined, token, undefined, 15_000)
       .then((data) => {
         setConfiguration(data);
+        setConnectionError("");
         if (!data.playlist) {
           setCatalogLoading(false);
           setCatalogError("Nenhuma fonte está vinculada a este dispositivo.");
@@ -202,11 +211,16 @@ function App() {
         }
         setMode("home");
       })
-      .catch(() => {
-        localStorage.removeItem(TOKEN_KEY);
-        setMode("activation");
+      .catch((caught: unknown) => {
+        if (isAuthenticationFailure(caught)) {
+          clearDeviceSession();
+          return;
+        }
+        setCatalogLoading(false);
+        setCatalogError(caught instanceof Error ? caught.message : "Não foi possível conectar ao serviço.");
+        setMode("home");
       });
-  }, [demo, loadCatalog]);
+  }, [clearDeviceSession, demo, loadCatalog]);
 
   useEffect(() => {
     if (mode !== "home" || demo) return;
@@ -215,9 +229,14 @@ function App() {
     const heartbeat = () => {
       void request(
         "v1/device/heartbeat",
-        { method: "POST", body: JSON.stringify({ appVersion: "0.1.0" }) },
+        { method: "POST", body: JSON.stringify({ appVersion: APP_VERSION }) },
         token,
-      );
+        undefined,
+        15_000,
+      ).then(() => setConnectionError("")).catch((caught: unknown) => {
+        if (isAuthenticationFailure(caught)) clearDeviceSession();
+        else setConnectionError("Conexão temporariamente indisponível. O aparelho continuará ativado.");
+      });
     };
     heartbeat();
     const heartbeatTimer = window.setInterval(heartbeat, 120_000);
@@ -228,7 +247,7 @@ function App() {
       window.clearInterval(heartbeatTimer);
       window.clearInterval(catalogTimer);
     };
-  }, [demo, loadCatalog, mode]);
+  }, [clearDeviceSession, demo, loadCatalog, mode]);
 
   if (mode === "loading") return <BootScreen />;
   if (mode === "activation") {
@@ -261,20 +280,11 @@ function App() {
       configuration={configuration}
       catalog={catalog}
       loading={catalogLoading}
-      error={catalogError}
+      error={catalogError || connectionError}
       demo={demo}
       onRefresh={refreshAll}
       onCatalogKind={changeCatalogKind}
-      onDisconnect={() => {
-        catalogRequestRef.current?.abort();
-        catalogCacheRef.current.clear();
-        loadedKindRef.current = null;
-        kindRef.current = "LIVE";
-        localStorage.removeItem(TOKEN_KEY);
-        setConfiguration(null);
-        setCatalog(null);
-        setMode("activation");
-      }}
+      onDisconnect={clearDeviceSession}
     />
   );
 }
@@ -327,13 +337,15 @@ function ActivationScreen({
           platformDeviceId: identity.id,
           model: identity.model,
           osVersion: identity.osVersion,
-          appVersion: "0.1.0",
+          appVersion: APP_VERSION,
         }),
-      });
+      }, undefined, undefined, 20_000);
       const nextConfiguration = await request<Configuration>(
         "v1/device/configuration",
         undefined,
         response.deviceToken,
+        undefined,
+        15_000,
       );
       onActivated(nextConfiguration, response.deviceToken);
     } catch (caught) {
@@ -375,7 +387,7 @@ function ActivationScreen({
         <footer>LC PLAY · Seu conteúdo. Sua tela.</footer>
       </section>
       <section className="activation-visual" aria-label="Entretenimento LC PLAY">
-        <img src={`${import.meta.env.BASE_URL}assets/lc-play-home.png`} alt="Colagem de entretenimento com cidade, esporte, música e natureza" />
+        <img width="1920" height="1080" src={`${import.meta.env.BASE_URL}assets/lc-play-home.png`} alt="Colagem de entretenimento com cidade, esporte, música e natureza" />
         <div className="activation-visual-caption">
           <span><MonitorPlay size={20} />LG webOS</span>
           <strong>Uma tela.<br />Tudo organizado.</strong>
@@ -570,7 +582,7 @@ function HomeScreen({
   return (
     <section className="home-screen">
       <PlayerHeader sourceName={sourceName} />
-      <img className="home-backdrop" src={`${import.meta.env.BASE_URL}assets/lc-play-home.png`} alt="" />
+      <img className="home-backdrop" width="1920" height="1080" src={`${import.meta.env.BASE_URL}assets/lc-play-home.png`} alt="" />
       <div className="home-intro">
         <Brand />
         <h1>O que vamos assistir?</h1>
@@ -714,7 +726,7 @@ function LiveTvScreen({
               aria-label={fullscreenOpen ? selected?.name ?? "TV ao vivo" : undefined}
               tabIndex={-1}
             >
-              {selected && !demo && selected.streamUrl ? <StreamVideo key={selected.id} item={selected} /> : <div className="live-preview-art"><img src={`${import.meta.env.BASE_URL}assets/lc-play-home.png`} alt="" /><p>{selected ? "Prévia de demonstração" : "Escolha um canal"}</p></div>}
+              {selected && !demo && selected.streamUrl ? <StreamVideo key={selected.id} item={selected} /> : <div className="live-preview-art"><img width="1920" height="1080" src={`${import.meta.env.BASE_URL}assets/lc-play-home.png`} alt="" /><p>{selected ? "Prévia de demonstração" : "Escolha um canal"}</p></div>}
               <span className="live-badge">AO VIVO</span>
             </div>
             <div className="live-selected-info"><span className="live-selected-icon"><Radio /></span><div><h1>{selected?.name ?? "Escolha um canal"}</h1><span>{selected ? cleanGroupLabel(selected.group) : "TV ao vivo"}</span></div></div>
@@ -781,7 +793,7 @@ const VirtualChannelList = memo(function VirtualChannelList({ items, selectedId,
         return <div role="listitem" aria-posinset={position + 1} aria-setsize={items.length} className={`live-channel-row ${selectedId === item.id ? "selected" : ""}`} key={item.id} style={{ height: CHANNEL_ROW_HEIGHT }}>
           <button data-focusable data-autofocus={position === 0 ? "" : undefined} className="live-channel-pick" onClick={() => onSelect(item.id)}>
             <span className="live-channel-number">{position + 1}</span>
-            <span className="live-channel-logo"><span>{item.name.slice(0, 2).toUpperCase()}</span>{item.logo ? <img src={item.logo} alt="" loading="lazy" decoding="async" onError={(event) => { event.currentTarget.style.display = "none"; }} /> : null}</span>
+            <span className="live-channel-logo"><span>{item.name.slice(0, 2).toUpperCase()}</span>{item.logo ? <img width="50" height="50" src={item.logo} alt="" loading="lazy" decoding="async" onError={(event) => { event.currentTarget.style.display = "none"; }} /> : null}</span>
             <span className="live-channel-label"><strong>{item.name}</strong><small>{item.now?.title ?? cleanGroupLabel(item.group)}</small></span>
           </button>
           <button data-focusable className={`live-favorite ${favorite ? "is-favorite" : ""}`} onClick={() => onFavorite(item.id)} aria-label={`${favorite ? "Remover" : "Adicionar"} ${item.name} ${favorite ? "dos" : "aos"} favoritos`}><Heart fill={favorite ? "currentColor" : "none"} /></button>
@@ -915,7 +927,7 @@ function CatalogScreen({
             >
               <span className="content-art">
                 <span className="content-fallback">{item.name.slice(0, 2).toUpperCase()}</span>
-                {item.logo ? <img src={item.logo} alt="" loading="lazy" onError={(event) => { event.currentTarget.style.display = "none"; }} /> : null}
+                {item.logo ? <img width="400" height="600" src={item.logo} alt="" loading="lazy" onError={(event) => { event.currentTarget.style.display = "none"; }} /> : null}
                 <span className="content-play"><Play fill="currentColor" /></span>
               </span>
               <strong>{item.name}</strong>
@@ -941,7 +953,7 @@ function LiveGuide({ items, onPlay }: { items: CatalogItem[]; onPlay: (item: Cat
           <span className="guide-channel">
             <span className="guide-logo">
               <span>{item.name.slice(0, 2).toUpperCase()}</span>
-              {item.logo ? <img src={item.logo} alt="" loading="lazy" onError={(event) => { event.currentTarget.style.display = "none"; }} /> : null}
+              {item.logo ? <img width="58" height="58" src={item.logo} alt="" loading="lazy" onError={(event) => { event.currentTarget.style.display = "none"; }} /> : null}
             </span>
             <strong>{item.name}</strong>
           </span>
@@ -1036,7 +1048,7 @@ function SeriesScreen({
             >
               <span className="content-art">
                 <span className="content-fallback">{series.title.slice(0, 2).toUpperCase()}</span>
-                {series.logo ? <img src={series.logo} alt="" loading="lazy" onError={(event) => { event.currentTarget.style.display = "none"; }} /> : null}
+                {series.logo ? <img width="400" height="600" src={series.logo} alt="" loading="lazy" onError={(event) => { event.currentTarget.style.display = "none"; }} /> : null}
                 <span className="content-play"><ChevronRight /></span>
               </span>
               <strong>{series.title}</strong>
@@ -1076,7 +1088,7 @@ function SeriesDetails({
       <div className="series-summary">
         <span className="series-poster">
           <span>{series.title.slice(0, 2).toUpperCase()}</span>
-          {series.logo ? <img src={series.logo} alt="" onError={(event) => { event.currentTarget.style.display = "none"; }} /> : null}
+          {series.logo ? <img width="400" height="600" src={series.logo} alt="" onError={(event) => { event.currentTarget.style.display = "none"; }} /> : null}
         </span>
         <div>
           <span>{series.group}</span>
@@ -1190,7 +1202,7 @@ function SettingsScreen({
               <div><dt>Dispositivo</dt><dd>{configuration?.device.label ?? "Modo demonstração"}</dd></div>
               <div><dt>ID do dispositivo</dt><dd>{configuration?.device.id ?? "Prévia local"}</dd></div>
               <div><dt>Aplicativo</dt><dd>LC PLAY</dd></div>
-              <div><dt>Versão</dt><dd>0.1.0</dd></div>
+              <div><dt>Versão</dt><dd>{APP_VERSION}</dd></div>
             </>}
           </dl>
           {error ? <p className="settings-error" role="alert">{error}</p> : null}
