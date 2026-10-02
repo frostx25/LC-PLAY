@@ -19,6 +19,16 @@ export class PlaylistsController {
     return this.playlists.create(admin, body);
   }
 
+  @Post(":playlistId/diagnostic")
+  diagnose(@CurrentAdmin() admin: AdminTokenPayload, @Param("playlistId") playlistId: string) {
+    return this.playlists.diagnose(admin, playlistId);
+  }
+
+  @Get(":playlistId/diagnostic")
+  latestDiagnostic(@CurrentAdmin() admin: AdminTokenPayload, @Param("playlistId") playlistId: string) {
+    return this.playlists.latestDiagnostic(admin, playlistId);
+  }
+
   @Patch(":playlistId")
   update(
     @CurrentAdmin() admin: AdminTokenPayload,

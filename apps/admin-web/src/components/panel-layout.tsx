@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Activity,
+  Bell,
   CircleUserRound,
   LayoutDashboard,
   LogOut,
@@ -22,6 +23,7 @@ const navigation = [
   { href: "/devices", label: "Dispositivos", icon: MonitorPlay },
   { href: "/playlists", label: "Fontes", icon: RadioTower },
   { href: "/customers", label: "Clientes", icon: UsersRound },
+  { href: "/alerts", label: "Alertas", icon: Bell },
   { href: "/logs", label: "Atividade", icon: Activity },
 ];
 
@@ -31,6 +33,7 @@ const pageTitles: Record<string, { title: string; subtitle: string }> = {
   "/playlists": { title: "Fontes", subtitle: "Listas autorizadas e sincronização" },
   "/customers": { title: "Clientes", subtitle: "Responsáveis e pontos de acesso" },
   "/logs": { title: "Atividade", subtitle: "Histórico administrativo e eventos" },
+  "/alerts": { title: "Alertas", subtitle: "Validade dos dispositivos e saúde das fontes" },
 };
 
 export function PanelLayout({ children }: { children: ReactNode }) {

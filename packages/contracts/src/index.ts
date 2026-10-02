@@ -54,12 +54,16 @@ export const updatePlaylistSchema = z.object({
 export const createDeviceSchema = z.object({
   label: z.string().trim().min(2).max(80),
   platform: devicePlatformSchema,
-  customerId: z.string().trim().min(1),
+  customerId: z.string().trim().min(1).optional(),
+  contact: createCustomerSchema.pick({ email: true, phone: true }).optional(),
   playlistId: z.string().trim().min(1).optional().nullable(),
   playlist: createPlaylistSchema.optional(),
   expiresAt: z.string().datetime().optional().nullable(),
   parentalPin: z.string().regex(/^\d{4}$/).optional().nullable(),
 }).superRefine((value, context) => {
+  if (value.customerId && value.contact) {
+    context.addIssue({ code: "custom", message: "O contato pertence ao cliente existente. Edite-o no dispositivo após vincular.", path: ["contact"] });
+  }
   if (value.playlist && value.playlistId) {
     context.addIssue({ code: "custom", message: "Escolha uma fonte cadastrada ou cadastre uma nova fonte.", path: ["playlistId"] });
   }
@@ -67,6 +71,7 @@ export const createDeviceSchema = z.object({
 
 export const updateDeviceSchema = z.object({
   label: z.string().trim().min(2).max(80).optional(),
+  contact: createCustomerSchema.pick({ email: true, phone: true }).optional(),
   playlistId: z.string().trim().min(1).nullable().optional(),
   playlist: createPlaylistSchema.optional(),
   status: deviceStatusSchema.optional(),
@@ -77,6 +82,27 @@ export const updateDeviceSchema = z.object({
     context.addIssue({ code: "custom", message: "Escolha uma fonte cadastrada ou cadastre uma nova fonte.", path: ["playlistId"] });
   }
 });
+
+export const renewalDaysSchema = z.union([z.literal(30), z.literal(90), z.literal(365)]);
+export const renewDeviceSchema = z.object({ days: renewalDaysSchema });
+export const bulkDeviceSchema = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("RENEW"), deviceIds: z.array(z.string().trim().min(1)).min(1).max(100), days: renewalDaysSchema }),
+  z.object({ action: z.literal("SUSPEND"), deviceIds: z.array(z.string().trim().min(1)).min(1).max(100) }),
+  z.object({ action: z.literal("SOURCE"), deviceIds: z.array(z.string().trim().min(1)).min(1).max(100), playlistId: z.string().trim().min(1) }),
+]);
+
+export interface SourceDiagnosticCheck {
+  status: "OK" | "ERROR" | "UNAVAILABLE" | "UNSUPPORTED";
+  durationMs: number;
+  message: string;
+  count?: number;
+}
+export interface SourceDiagnostic {
+  checkedAt: string;
+  durationMs: number;
+  m3u: SourceDiagnosticCheck;
+  epg: SourceDiagnosticCheck;
+}
 
 export const issueActivationSchema = z.object({
   ttlMinutes: z.number().int().min(5).max(1440).default(30),

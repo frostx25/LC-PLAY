@@ -6,14 +6,14 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import type { Playlist } from "@prisma/client";
-import type { CatalogItem, CatalogKind, DeviceCatalog } from "@lc-play/contracts";
+import type { CatalogItem, CatalogKind, DeviceCatalog, SourceDiagnostic, SourceDiagnosticCheck } from "@lc-play/contracts";
 import { decryptSecret, sha256 } from "../common/crypto";
 import type { DevicePrincipal } from "../devices/device-token.guard";
 import { PrismaService } from "../prisma/prisma.service";
 import { attachEpg, parseM3uCatalog, parseXmltv } from "./catalog.parsers";
 import { selectCatalogKind } from "./catalog.selection";
+import { CatalogCache } from "./catalog.cache";
 
-const CATALOG_CACHE_MS = 5 * 60_000;
 const MAX_CATALOG_BYTES = 150 * 1024 * 1024;
 const MAX_EPG_BYTES = 80 * 1024 * 1024;
 const MAX_DEVICE_ITEMS = 8_500;
@@ -21,7 +21,6 @@ const ITEM_LIMITS = { LIVE: 2_000, MOVIE: 1_500, SERIES: 5_000 } as const;
 const MAX_SERIES_COLLECTIONS = 750;
 const MAX_RETAINED_EPISODES_PER_SERIES = 8;
 
-type CachedCatalog = { expiresAt: number; catalog: DeviceCatalog };
 type M3uLoadResult = {
   items: CatalogItem[];
   embeddedEpgUrl: string | null;
@@ -31,7 +30,8 @@ type M3uLoadResult = {
 
 @Injectable()
 export class CatalogService {
-  private readonly cache = new Map<string, CachedCatalog>();
+  private readonly cache = new CatalogCache();
+  private readonly diagnostics = new Map<string, Promise<SourceDiagnostic>>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -54,12 +54,53 @@ export class CatalogService {
       playlist.usernameEncrypted ?? "",
       playlist.passwordEncrypted ?? "",
     ].join(":"));
-    const cached = this.cache.get(cacheKey);
-    if (cached && cached.expiresAt > Date.now()) return selectCatalogKind(cached.catalog, kind);
+    const catalog = await this.cache.get(cacheKey, () => this.loadAndPersist(playlist));
+    return selectCatalogKind(catalog, kind);
+  }
 
+  diagnose(playlist: Playlist): Promise<SourceDiagnostic> {
+    const key = `${playlist.id}:${playlist.updatedAt.toISOString()}`;
+    const pending = this.diagnostics.get(key);
+    if (pending) return pending;
+    const result = this.runDiagnostic(playlist).finally(() => this.diagnostics.delete(key));
+    this.diagnostics.set(key, result);
+    return result;
+  }
+
+  private async runDiagnostic(playlist: Playlist): Promise<SourceDiagnostic> {
+    const started = Date.now();
+    const key = this.config.getOrThrow<string>("DATA_ENCRYPTION_KEY");
+    let epgUrl = playlist.epgUrlEncrypted ? decryptSecret(playlist.epgUrlEncrypted, key) : null;
+    let m3u: SourceDiagnosticCheck;
+    if (playlist.type !== "M3U") {
+      m3u = { status: "UNSUPPORTED", durationMs: 0, message: "Diagnóstico Xtream ainda não disponível." };
+    } else {
+      try {
+        const parsed = await this.fetchM3u(decryptSecret(playlist.sourceUrlEncrypted, key), playlist.id);
+        if (!parsed.summary.total) throw new Error("A lista M3U não contém itens válidos.");
+        epgUrl ||= parsed.embeddedEpgUrl;
+        m3u = { status: "OK", durationMs: Date.now() - started, message: "Lista M3U válida.", count: parsed.summary.total };
+      } catch (error) {
+        m3u = { status: "ERROR", durationMs: Date.now() - started, message: diagnosticMessage(error, "M3U") };
+      }
+    }
+    const epgStarted = Date.now();
+    let epg: SourceDiagnosticCheck = { status: "UNAVAILABLE", durationMs: 0, message: "Nenhum EPG configurado ou detectado." };
+    if (epgUrl) {
+      try {
+        const guide = parseXmltv(await this.fetchText(epgUrl, MAX_EPG_BYTES, "Não foi possível baixar o EPG."));
+        if (!guide.size) throw new Error("O EPG não contém programação atual ou futura válida.");
+        epg = { status: "OK", durationMs: Date.now() - epgStarted, message: "EPG válido; canais com programação atual ou futura.", count: guide.size };
+      } catch (error) {
+        epg = { status: "ERROR", durationMs: Date.now() - epgStarted, message: diagnosticMessage(error, "EPG") };
+      }
+    }
+    return { checkedAt: new Date().toISOString(), durationMs: Date.now() - started, m3u, epg };
+  }
+
+  private async loadAndPersist(playlist: Playlist): Promise<DeviceCatalog> {
     try {
       const catalog = await this.loadM3u(playlist);
-      this.cache.set(cacheKey, { expiresAt: Date.now() + CATALOG_CACHE_MS, catalog });
       await this.prisma.playlist.update({
         where: { id: playlist.id },
         data: {
@@ -69,7 +110,7 @@ export class CatalogService {
           lastError: catalog.epg.status === "ERROR" ? "Lista carregada, mas o EPG não pôde ser atualizado." : null,
         },
       });
-      return selectCatalogKind(catalog, kind);
+      return catalog;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Falha desconhecida ao carregar a fonte.";
       await this.prisma.playlist.update({
@@ -126,7 +167,7 @@ export class CatalogService {
   ): Promise<M3uLoadResult> {
     const parsedUrl = this.parseHttpUrl(url, "A URL cadastrada para a fonte é inválida.");
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30_000);
+    const timeout = setTimeout(() => controller.abort(), 90_000);
     try {
       const response = await fetch(parsedUrl, {
         signal: controller.signal,
@@ -278,4 +319,14 @@ export class CatalogService {
     }
     return parsedUrl;
   }
+}
+
+function diagnosticMessage(error: unknown, kind: "M3U" | "EPG") {
+  const message = error instanceof Error ? error.message : "";
+  if (message.includes("Tempo limite excedido")) return `${kind}: tempo limite excedido.`;
+  const status = message.match(/Resposta (\d{3})/);
+  if (status) return `${kind}: servidor respondeu HTTP ${status[1]}.`;
+  if (message.includes("excede o limite")) return `${kind}: arquivo excede o tamanho permitido.`;
+  if (message.includes("não contém")) return kind === "M3U" ? "M3U sem itens válidos." : "EPG sem programação atual ou futura válida.";
+  return `${kind}: não foi possível acessar ou interpretar a fonte. Verifique a URL, as credenciais e a disponibilidade do servidor.`;
 }

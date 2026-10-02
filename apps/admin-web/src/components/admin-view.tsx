@@ -26,8 +26,12 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { api, SessionExpiredError } from "./admin-api";
+import { DeviceManagement } from "./device-management";
+import { SourceDiagnosticDialog } from "./source-diagnostic";
+import { AlertsView } from "./alerts-view";
 
-type Section = "dashboard" | "devices" | "playlists" | "customers" | "logs";
+type Section = "dashboard" | "devices" | "playlists" | "customers" | "logs" | "alerts";
 type Dialog = "device" | "device-source" | "playlist" | "playlist-edit" | "customer" | "activation" | null;
 
 type Summary = {
@@ -39,7 +43,7 @@ type Summary = {
   onlineNow: number;
 };
 
-type Device = {
+export type Device = {
   id: string;
   label: string;
   platform: "LG_WEBOS" | "ROKU";
@@ -55,7 +59,7 @@ type Device = {
   activationCodes: Array<{ codeHint: string; expiresAt: string }>;
 };
 
-type Playlist = {
+export type Playlist = {
   id: string;
   name: string;
   type: "M3U" | "XTREAM";
@@ -67,7 +71,7 @@ type Playlist = {
   _count: { devices: number };
 };
 
-type Customer = {
+export type Customer = {
   id: string;
   name: string;
   email: string | null;
@@ -77,7 +81,7 @@ type Customer = {
   _count: { devices: number };
 };
 
-type AuditLog = {
+export type AuditLog = {
   id: string;
   action: string;
   entityType: string;
@@ -109,25 +113,12 @@ const actionLabels: Record<string, string> = {
   "playlist.updated": "Fonte atualizada",
   "playlist.deleted": "Fonte excluída",
   "customer.created": "Cliente cadastrado",
+  "customer.updated": "Contato atualizado",
+  "device.renewed": "Validade renovada",
+  "device.suspended": "Dispositivo suspenso",
+  "device.source_changed": "Fonte alterada",
+  "playlist.diagnosed": "Diagnóstico da fonte",
 };
-
-class SessionExpiredError extends Error {}
-
-async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`/api/backend/${path}`, {
-    ...init,
-    headers: { "Content-Type": "application/json", ...init?.headers },
-  });
-  if (response.status === 401) {
-    throw new SessionExpiredError("Sessão expirada.");
-  }
-  const data = await response.json();
-  if (!response.ok) {
-    const issue = Array.isArray(data.issues) ? data.issues[0]?.message : null;
-    throw new Error(issue ?? data.message ?? "Não foi possível concluir a operação.");
-  }
-  return data as T;
-}
 
 function formatDate(value: string | null, includeTime = false) {
   if (!value) return "—";
@@ -170,6 +161,7 @@ export function AdminView({ section }: { section: Section }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [diagnosticSource, setDiagnosticSource] = useState<Playlist | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -200,6 +192,12 @@ export function AdminView({ section }: { section: Section }) {
     const timer = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(timer);
   }, [load]);
+
+  useEffect(() => {
+    if (section !== "alerts") return;
+    const timer = window.setInterval(() => void load(), 60_000);
+    return () => window.clearInterval(timer);
+  }, [load, section]);
 
   useEffect(() => {
     if (!notice) return;
@@ -302,7 +300,8 @@ export function AdminView({ section }: { section: Section }) {
         body: JSON.stringify({
           label: form.get("label"),
           platform: form.get("platform"),
-          customerId: form.get("customerId"),
+          customerId: form.get("customerId") || undefined,
+          contact: form.get("customerId") ? undefined : { email: form.get("email") || "", phone: form.get("phone") || "" },
           ...deviceSourcePayload(form, form.get("label")?.toString() ?? "Dispositivo"),
           expiresAt: expiration ? new Date(expiration).toISOString() : null,
           parentalPin: form.get("parentalPin") || null,
@@ -415,8 +414,11 @@ export function AdminView({ section }: { section: Section }) {
         />
       ) : null}
       {!loading && section === "devices" ? (
-        <Devices
+        <DeviceManagement
           devices={devices}
+          customers={customers}
+          playlists={playlists}
+          onChanged={load}
           onCreate={() => setDialog("device")}
           onIssueKey={issueKey}
           onManageSource={manageDeviceSource}
@@ -426,12 +428,14 @@ export function AdminView({ section }: { section: Section }) {
         />
       ) : null}
       {!loading && section === "playlists" ? (
-        <Playlists playlists={playlists} onCreate={() => setDialog("playlist")} onEdit={editPlaylist} onToggle={togglePlaylist} onDelete={deletePlaylist} />
+        <Playlists playlists={playlists} onCreate={() => setDialog("playlist")} onEdit={editPlaylist} onToggle={togglePlaylist} onDelete={deletePlaylist} onDiagnostic={setDiagnosticSource} />
       ) : null}
       {!loading && section === "customers" ? (
         <Customers customers={customers} onCreate={() => setDialog("customer")} />
       ) : null}
       {!loading && section === "logs" ? <Logs logs={logs} /> : null}
+      {!loading && section === "alerts" ? <AlertsView devices={devices} playlists={playlists} onRefresh={load} onDiagnostic={setDiagnosticSource} /> : null}
+      {diagnosticSource ? <SourceDiagnosticDialog playlist={diagnosticSource} onClose={() => setDiagnosticSource(null)} onChanged={load} /> : null}
 
       {dialog === "customer" ? (
         <Modal title="Novo cliente" icon={<UserPlus size={20} />} onClose={() => setDialog(null)}>
@@ -495,7 +499,7 @@ export function AdminView({ section }: { section: Section }) {
               <Field label="Identificação" name="label" placeholder="Sala, cliente ou unidade" required autoFocus />
               <label className="field"><span>Plataforma</span><select name="platform" defaultValue="LG_WEBOS"><option value="LG_WEBOS">LG webOS</option><option value="ROKU">Roku</option></select></label>
             </div>
-            <label className="field"><span>Cliente</span><select name="customerId" required defaultValue=""><option value="" disabled>Selecione</option>{customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}</select></label>
+            <DeviceCustomerFields customers={customers} />
             <DeviceSourceFields playlists={playlists} />
             <div className="form-grid">
               <Field label="Validade" name="expiresAt" type="datetime-local" />
@@ -622,13 +626,18 @@ function Dashboard({
   );
 }
 
-function Devices({ devices, onCreate, onIssueKey, onManageSource, onToggle, onUnlink, onDelete }: { devices: Device[]; onCreate: () => void; onIssueKey: (device: Device) => void; onManageSource: (device: Device) => void; onToggle: (device: Device) => void; onUnlink: (device: Device) => void; onDelete: (device: Device) => void }) {
-  return <section className="content-section full-section"><SectionHeading title={`${devices.length} ${devices.length === 1 ? "dispositivo" : "dispositivos"}`} subtitle="LG webOS e Roku" action={<button className="primary-button" onClick={onCreate}><CirclePlus size={18} />Novo dispositivo</button>} /><DeviceTable devices={devices} onIssueKey={onIssueKey} onManageSource={onManageSource} onToggle={onToggle} onUnlink={onUnlink} onDelete={onDelete} /></section>;
+function Playlists({ playlists, onCreate, onEdit, onToggle, onDelete, onDiagnostic }: { playlists: Playlist[]; onCreate: () => void; onEdit: (playlist: Playlist) => void; onToggle: (playlist: Playlist) => void; onDelete: (playlist: Playlist) => void; onDiagnostic: (playlist: Playlist) => void }) {
+  const title = `${playlists.length} ${playlists.length === 1 ? "fonte" : "fontes"}`;
+  return <section className="content-section full-section"><SectionHeading title={title} subtitle="Credenciais protegidas por criptografia" action={<button className="primary-button" onClick={onCreate}><RadioTower size={18} />Nova fonte</button>} />{playlists.length ? <div className="source-grid">{playlists.map((playlist) => <article className="source-card" key={playlist.id}><div className="source-card-top"><span className="source-icon"><RadioTower size={20} /></span><StatusBadge status={playlist.status} /></div><div><h3>{playlist.name}</h3><p>{playlist.type} · {playlist._count.devices} dispositivos</p></div><div className="source-metrics"><span><strong>{playlist.itemCount}</strong> itens</span><span><strong>{formatDate(playlist.lastSyncAt)}</strong> sincronização</span></div>{playlist.lastError ? <p className="source-error">{playlist.lastError}</p> : null}<div className="row-actions"><button className="secondary-button small-button" onClick={() => onDiagnostic(playlist)}><Activity size={16} />Diagnóstico</button><IconAction label={playlist.status === "PAUSED" ? "Ativar fonte" : "Pausar fonte"} onClick={() => onToggle(playlist)}>{playlist.status === "PAUSED" ? <Check size={16} /> : <Ban size={16} />}</IconAction><IconAction label="Editar fonte" onClick={() => onEdit(playlist)}><Pencil size={17} /></IconAction><IconAction label="Excluir fonte" onClick={() => onDelete(playlist)} danger><Trash2 size={17} /></IconAction></div></article>)}</div> : <EmptyState icon={<RadioTower size={26} />} title="Nenhuma fonte cadastrada" actionLabel="Cadastrar fonte" onAction={onCreate} />}</section>;
 }
 
-function Playlists({ playlists, onCreate, onEdit, onToggle, onDelete }: { playlists: Playlist[]; onCreate: () => void; onEdit: (playlist: Playlist) => void; onToggle: (playlist: Playlist) => void; onDelete: (playlist: Playlist) => void }) {
-  const title = `${playlists.length} ${playlists.length === 1 ? "fonte" : "fontes"}`;
-  return <section className="content-section full-section"><SectionHeading title={title} subtitle="Credenciais protegidas por criptografia" action={<button className="primary-button" onClick={onCreate}><CirclePlus size={18} />Nova fonte</button>} />{playlists.length ? <div className="source-grid">{playlists.map((playlist) => <article className="source-card" key={playlist.id}><div className="source-card-top"><span className="source-icon"><RadioTower size={20} /></span><StatusBadge status={playlist.status} /></div><div><h3>{playlist.name}</h3><p>{playlist.type} · {playlist._count.devices} {playlist._count.devices === 1 ? "dispositivo" : "dispositivos"}</p></div><div className="source-metrics"><span><strong>{playlist.itemCount}</strong> itens</span><span><strong>{formatDate(playlist.lastSyncAt)}</strong> sincronização</span></div><div className="row-actions"><button className="secondary-button small-button" onClick={() => onToggle(playlist)}>{playlist.status === "PAUSED" ? <Check size={16} /> : <Ban size={16} />}{playlist.status === "PAUSED" ? "Ativar" : "Pausar"}</button><IconAction label="Editar fonte" onClick={() => onEdit(playlist)}><Pencil size={17} /></IconAction><IconAction label="Excluir fonte" onClick={() => onDelete(playlist)} danger><Trash2 size={17} /></IconAction></div></article>)}</div> : <EmptyState icon={<RadioTower size={26} />} title="Nenhuma fonte cadastrada" actionLabel="Cadastrar fonte" onAction={onCreate} />}</section>;
+function DeviceCustomerFields({ customers }: { customers: Customer[] }) {
+  const [existing, setExisting] = useState(false);
+  return <>
+    <label className="checkbox-field"><input type="checkbox" checked={existing} onChange={(event) => setExisting(event.target.checked)} />Vincular a cliente existente</label>
+    {existing ? <label className="field"><span>Cliente</span><select name="customerId" required defaultValue=""><option value="" disabled>Selecione</option>{customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}</select></label>
+      : <div className="form-grid"><Field label="E-mail (opcional)" name="email" type="email" /><Field label="Telefone (opcional)" name="phone" type="tel" maxLength={30} /></div>}
+  </>;
 }
 
 function Customers({ customers, onCreate }: { customers: Customer[]; onCreate: () => void }) {

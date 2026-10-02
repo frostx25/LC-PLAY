@@ -6,6 +6,14 @@ Player React/Vite do LC PLAY, com navegação por controle remoto e fontes confi
 
 Execute `pnpm --filter @lc-play/lg-webos dev` na raiz. Configure `VITE_API_URL` no ambiente local; o padrão é `http://localhost:4100`. A demonstração visual está em `http://localhost:5173/?demo`, somente em desenvolvimento.
 
+## Instalar em TV real
+
+O procedimento está em [../../docs/teste-lg.md](../../docs/teste-lg.md). Execute `pnpm --filter @lc-play/lg-webos package:tv` para gerar `artifacts/com.lcplay.tv_0.1.0_all.ipk` dentro desta aplicação.
+
+O pacote usa `vite.tv.config.ts`, entrada HTML clássica e JavaScript IIFE em `dist-tv`. Na LG C1 com webOS 6.5.3, scripts ES module em arquivos locais falharam por MIME vazio antes de renderizar a interface. O build de TV não depende desse carregamento; o build web normal continua separado. HLS.js fica incorporado ao bundle da TV, enquanto o build web mantém o carregamento sob demanda.
+
+A biblioteca oficial `webOSTV.js` 1.2.13 e sua licença ficam em `public/vendor`. A identidade usa o LGUDID real quando executado no aparelho, sem substituir erros por uma identidade de navegador.
+
 ## Desempenho
 
 - O aparelho solicita apenas a seção aberta (`LIVE`, `MOVIE` ou `SERIES`). Ao trocar de seção, libera o catálogo anterior e cancela a requisição pendente.

@@ -35,6 +35,21 @@ export class AdminDevicesController {
     return this.devices.create(admin, body);
   }
 
+  @Post("bulk")
+  bulk(@CurrentAdmin() admin: AdminTokenPayload, @Body() body: unknown) {
+    return this.devices.bulk(admin, body);
+  }
+
+  @Get(":deviceId")
+  details(@CurrentAdmin() admin: AdminTokenPayload, @Param("deviceId") deviceId: string) {
+    return this.devices.details(admin, deviceId);
+  }
+
+  @Post(":deviceId/renew")
+  renew(@CurrentAdmin() admin: AdminTokenPayload, @Param("deviceId") deviceId: string, @Body() body: unknown) {
+    return this.devices.renew(admin, deviceId, body);
+  }
+
   @Patch(":deviceId")
   update(
     @CurrentAdmin() admin: AdminTokenPayload,

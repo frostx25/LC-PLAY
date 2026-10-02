@@ -13,6 +13,8 @@ import {
   heartbeatSchema,
   issueActivationSchema,
   updateDeviceSchema,
+  renewDeviceSchema,
+  bulkDeviceSchema,
 } from "@lc-play/contracts";
 import type { AdminTokenPayload } from "../common/types";
 import {
@@ -28,6 +30,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import type { DevicePrincipal } from "./device-token.guard";
 import type { CreatePlaylistInput } from "@lc-play/contracts";
 import { encryptedPlaylistData } from "../playlists/playlist-data";
+import { deviceRenewal } from "./device-renewal";
 
 const deviceRelations = {
   customer: true,
@@ -65,13 +68,22 @@ export class DevicesService {
 
     const parentalPinHash = data.parentalPin ? await hashPassword(data.parentalPin) : null;
     return this.prisma.$transaction(async (tx) => {
+      const customer = data.customerId ? null : await tx.customer.create({ data: {
+        tenantId: admin.tenantId, name: data.label,
+        email: data.contact?.email || null, phone: data.contact?.phone || null,
+      } });
+      if (customer) await tx.auditLog.create({ data: {
+        tenantId: admin.tenantId, actorType: "ADMIN", actorId: admin.sub,
+        action: "customer.created", entityType: "Customer", entityId: customer.id,
+        metadata: { name: customer.name, automatic: true },
+      } });
       const playlistId = data.playlist
         ? await this.createInlinePlaylist(tx, admin, data.playlist)
         : data.playlistId;
       const device = await tx.device.create({
         data: {
           tenantId: admin.tenantId,
-          customerId: data.customerId,
+          customerId: data.customerId ?? customer!.id,
           playlistId,
           label: data.label,
           platform: data.platform,
@@ -100,6 +112,22 @@ export class DevicesService {
     const parentalPinHash = data.parentalPin === undefined
       ? undefined : data.parentalPin ? await hashPassword(data.parentalPin) : null;
     return this.prisma.$transaction(async (tx) => {
+      const latest = await tx.device.findUnique({ where: { id: deviceId }, select: { status: true, deviceTokenHash: true } });
+      if (!latest) throw new NotFoundException("Dispositivo não encontrado.");
+      const restoredStatus = latest.status === "EXPIRED" && data.expiresAt !== undefined &&
+        (!data.expiresAt || new Date(data.expiresAt) > new Date())
+        ? latest.deviceTokenHash ? "ACTIVE" : "PENDING" : undefined;
+      if (data.contact) {
+        await tx.customer.update({ where: { id: current.customerId }, data: {
+          email: data.contact.email === undefined ? undefined : data.contact.email || null,
+          phone: data.contact.phone === undefined ? undefined : data.contact.phone || null,
+        } });
+        await tx.auditLog.create({ data: {
+          tenantId: admin.tenantId, actorType: "ADMIN", actorId: admin.sub,
+          action: "customer.updated", entityType: "Customer", entityId: current.customerId,
+          metadata: { fields: Object.keys(data.contact) },
+        } });
+      }
       const playlistId = data.playlist
         ? await this.createInlinePlaylist(tx, admin, data.playlist)
         : data.playlistId;
@@ -108,7 +136,7 @@ export class DevicesService {
         data: {
           label: data.label,
           playlistId,
-          status: data.status,
+          status: data.status ?? restoredStatus,
           expiresAt: data.expiresAt === undefined ? undefined : data.expiresAt ? new Date(data.expiresAt) : null,
           parentalPinHash,
         },
@@ -121,7 +149,7 @@ export class DevicesService {
         metadata: { fields: Object.keys(data) },
       } });
       return this.sanitizeDevice(device);
-    });
+    }, { timeout: 15_000, isolationLevel: "Serializable" });
   }
 
   private async createInlinePlaylist(tx: Prisma.TransactionClient, admin: AdminTokenPayload, playlist: CreatePlaylistInput) {
@@ -135,6 +163,56 @@ export class DevicesService {
       metadata: { name: source.name, type: source.type },
     } });
     return source.id;
+  }
+
+  async details(admin: AdminTokenPayload, deviceId: string) {
+    const device = await this.prisma.device.findFirst({
+      where: { id: deviceId, tenantId: admin.tenantId }, include: deviceRelations,
+    });
+    if (!device) throw new NotFoundException("Dispositivo não encontrado.");
+    const history = await this.prisma.auditLog.findMany({
+      where: { tenantId: admin.tenantId, OR: [
+        { entityType: "Device", entityId: deviceId },
+        { entityType: "Customer", entityId: device.customerId },
+      ] },
+      orderBy: { createdAt: "desc" }, take: 100,
+      select: { id: true, action: true, actorType: true, createdAt: true, entityType: true, entityId: true, metadata: true },
+    });
+    return { device: this.sanitizeDevice(device), history };
+  }
+
+  async renew(admin: AdminTokenPayload, deviceId: string, input: unknown) {
+    const { days } = parseBody(renewDeviceSchema, input);
+    return this.bulk(admin, { action: "RENEW", deviceIds: [deviceId], days });
+  }
+
+  async bulk(admin: AdminTokenPayload, input: unknown) {
+    const data = parseBody(bulkDeviceSchema, input);
+    const deviceIds = [...new Set(data.deviceIds)];
+    return this.prisma.$transaction(async (tx) => {
+      const devices = await tx.device.findMany({ where: { tenantId: admin.tenantId, id: { in: deviceIds } } });
+      if (devices.length !== deviceIds.length) throw new BadRequestException("A seleção contém dispositivos inválidos. Nenhuma alteração foi aplicada.");
+      if (data.action === "SOURCE") {
+        const playlist = await tx.playlist.findFirst({ where: { tenantId: admin.tenantId, id: data.playlistId } });
+        if (!playlist) throw new BadRequestException("Fonte inválida.");
+      }
+      const now = new Date();
+      for (const device of devices) {
+        const renewal = data.action === "RENEW" ? deviceRenewal(device, data.days, now) : null;
+        const changes = renewal ?? (data.action === "SUSPEND" ? { status: "SUSPENDED" as const } : data.action === "SOURCE" ? { playlistId: data.playlistId } : {});
+        await tx.device.update({ where: { id: device.id }, data: changes });
+        await tx.auditLog.create({ data: {
+          tenantId: admin.tenantId, actorType: "ADMIN", actorId: admin.sub,
+          action: data.action === "RENEW" ? "device.renewed" : data.action === "SUSPEND" ? "device.suspended" : "device.source_changed",
+          entityType: "Device", entityId: device.id,
+          metadata: { label: device.label, batchSize: devices.length,
+            ...(data.action === "RENEW" && renewal ? { days: data.days, previousExpiresAt: device.expiresAt?.toISOString() ?? null, expiresAt: renewal.expiresAt.toISOString() } : {}),
+            ...(data.action === "SOURCE" ? { playlistId: data.playlistId, previousPlaylistId: device.playlistId } : {}),
+          },
+        } });
+      }
+      return { updated: devices.length };
+    }, { timeout: 15_000, isolationLevel: "Serializable" });
   }
 
   async remove(admin: AdminTokenPayload, deviceId: string) {
@@ -392,9 +470,11 @@ export class DevicesService {
     return device;
   }
 
-  private async assertRelations(tenantId: string, customerId: string, playlistId?: string | null) {
-    const customer = await this.prisma.customer.findFirst({ where: { id: customerId, tenantId } });
-    if (!customer) throw new BadRequestException("Cliente inválido.");
+  private async assertRelations(tenantId: string, customerId?: string, playlistId?: string | null) {
+    if (customerId) {
+      const customer = await this.prisma.customer.findFirst({ where: { id: customerId, tenantId } });
+      if (!customer) throw new BadRequestException("Cliente inválido.");
+    }
     if (playlistId) {
       const playlist = await this.prisma.playlist.findFirst({ where: { id: playlistId, tenantId } });
       if (!playlist) throw new BadRequestException("Fonte inválida.");

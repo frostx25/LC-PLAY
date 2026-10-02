@@ -11,23 +11,16 @@
   .activation-form { width: 100%; max-width: 600px; }
   .main-menu { width: 100%; max-width: 1660px; }
   .catalog-search { width: 45vw; max-width: 460px; }
+  .vod-sidebar .catalog-search { width: 100%; max-width: none; }
   .programme-panel { width: calc(100% - 76px); max-width: 840px; }
-  .menu-card { height: 29vh; min-height: 250px; max-height: 330px; }
-  .live-workspace { grid-template-columns: 250px 370px minmax(0, 1fr); }
-  .live-preview-art { font-size: 100px; }
-  .live-preview-shade h1 { font-size: 30px; }
-  .live-now h2 { font-size: 23px; }
+  .menu-card { height: 300px; min-height: 0; max-height: none; }
   .stream-demo .tv-brand { font-size: 60px; }
   .stream-demo .tv-brand-mark { width: 100px; height: 100px; }
   @media (max-width: 1450px) {
-    .menu-card { min-height: 215px; max-height: 270px; }
-    .live-workspace { grid-template-columns: 185px 300px minmax(0, 1fr); }
-  }
-  @media (max-width: 1100px) {
-    .live-workspace { grid-template-columns: 190px minmax(250px, 1fr); }
+    .menu-card { height: 260px; }
   }
   @media (max-width: 640px) {
-    .live-workspace { display: flex; }
+    .menu-card { height: 240px; }
   }
 }
 
@@ -59,14 +52,21 @@
 .no-flex-gap .live-fullscreen > * + * { margin-left: 8px; }
 .no-flex-gap .pagination > * + * { margin-left: 17px; }
 .no-flex-gap .settings-actions > * + * { margin-left: 14px; }
-.no-flex-gap .live-rail > * + * { margin-top: 46px; }
-.no-flex-gap .live-topbar > * + *,
-.no-flex-gap .live-topbar-meta > * + * { margin-left: 28px; }
-.no-flex-gap .live-filter-row > * + * { margin-left: 7px; }
+.no-flex-gap .live-topbar-meta > * + *,
+.no-flex-gap .live-topbar-start > * + * { margin-left: 20px; }
+.no-flex-gap .live-nav > * + *,
+.no-flex-gap .live-nav button > * + *,
+.no-flex-gap .live-column-heading span > * + * { margin-left: 12px; }
 .no-flex-gap .live-channel-pick > * + * { margin-left: 12px; }
-.no-flex-gap .live-preview-art > * + * { margin-left: .09em; }
 .no-flex-gap .live-programme-title > * + * { margin-left: 10px; }
 @media (max-width: 640px) {
-  .no-flex-gap .live-rail > * + * { margin-top: 0; }
-  .no-flex-gap .live-rail nav > * + * { margin-left: 2px; }
+}
+
+
+.no-flex-gap .settings-nav button > * + * { margin-left: 14px; }
+.no-flex-gap .settings-nav button svg,
+.no-flex-gap .live-nav button svg { margin-right: 14px; }
+.no-flex-gap .settings-nav > * + * { margin-top: 14px; }
+@supports not (inset: 0) {
+  .home-backdrop { top: 0; right: 0; bottom: 0; left: 0; }
 }

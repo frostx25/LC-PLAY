@@ -23,6 +23,7 @@
     "docker:down": "docker compose down"
   },
   "devDependencies": {
+    "@webos-tools/cli": "3.2.6",
     "prettier": "latest",
     "sharp": "latest",
     "turbo": "latest",
@@ -32,4 +33,3 @@
     "node": ">=22"
   }
 }
-

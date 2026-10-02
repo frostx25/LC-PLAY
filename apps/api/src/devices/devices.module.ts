@@ -13,5 +13,6 @@ import { DeviceTokenGuard } from "./device-token.guard";
   imports: [AuthModule],
   controllers: [AdminDevicesController, AdminCustomersController, TvDeviceController],
   providers: [DevicesService, DeviceTokenGuard, CatalogService],
+  exports: [CatalogService],
 })
 export class DevicesModule {}

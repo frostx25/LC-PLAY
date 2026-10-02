@@ -3,6 +3,7 @@ import { NestFactory } from "@nestjs/core";
 import { ConfigService } from "@nestjs/config";
 import helmet from "helmet";
 import { AppModule } from "./app.module";
+import { allowedWebOrigins } from "./common/cors";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -13,7 +14,7 @@ async function bootstrap() {
   app.setGlobalPrefix("api");
   app.use(helmet({ crossOriginResourcePolicy: false }));
   app.enableCors({
-    origin: [adminOrigin, "http://localhost:5173", "http://127.0.0.1:5173"],
+    origin: allowedWebOrigins(adminOrigin, config.get<string>("PLAYER_WEB_ORIGINS", "")),
     methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "X-Device-Token"],
   });

@@ -52,6 +52,7 @@ export function useSpatialNavigation(enabled = true) {
       ).filter((element) => element.offsetParent !== null);
       if (!candidates.length) return;
       const current = document.activeElement instanceof HTMLElement ? document.activeElement : candidates[0];
+      if (current instanceof HTMLSelectElement && (direction === "up" || direction === "down")) return;
       if (current instanceof HTMLInputElement && (direction === "left" || direction === "right")) return;
       const target = current.hasAttribute("data-focusable")
         ? nextElement(current, candidates, direction)

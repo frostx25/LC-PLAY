@@ -1,4 +1,4 @@
-export const CHANNEL_ROW_HEIGHT = 65;
+export const CHANNEL_ROW_HEIGHT = 92;
 const OVERSCAN = 4;
 
 export function virtualChannelRange(count: number, scrollTop: number, viewportHeight: number) {

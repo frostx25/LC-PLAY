@@ -7,7 +7,9 @@ type WebOsRequest = {
 
 declare global {
   interface Window {
+    PalmServiceBridge?: unknown;
     webOS?: {
+      platform?: { tv?: boolean };
       service?: {
         request: (uri: string, options: WebOsRequest) => { cancel?: () => void };
       };
@@ -32,26 +34,41 @@ export async function getLgDeviceIdentity(): Promise<{
   model?: string;
   osVersion?: string;
 }> {
-  if (!window.webOS?.service?.request) {
+  if (!window.webOS?.platform?.tv && !window.PalmServiceBridge) {
     return { id: previewDeviceId(), model: "Navegador local", osVersion: "Preview" };
+  }
+  if (!window.webOS?.service?.request) {
+    throw new Error("Biblioteca webOS indisponível. Reinstale o aplicativo na TV.");
   }
 
   const deviceInfo = await new Promise<Record<string, unknown>>((resolve) => {
     if (!window.webOS?.deviceInfo) return resolve({});
-    window.webOS.deviceInfo((info) => resolve(info));
+    const timeout = setTimeout(() => resolve({}), 5_000);
+    window.webOS.deviceInfo((info) => {
+      clearTimeout(timeout);
+      resolve(info);
+    });
   });
 
   const id = await new Promise<string>((resolve, reject) => {
-    window.webOS?.service?.request("luna://com.webos.service.sm", {
+    const timeout = setTimeout(() => {
+      request?.cancel?.();
+      reject(new Error("A TV não respondeu à identificação. Tente novamente."));
+    }, 10_000);
+    const request = window.webOS?.service?.request("luna://com.webos.service.sm", {
       method: "deviceid/getIDs",
       parameters: { idType: ["LGUDID"] },
       onSuccess: (response) => {
+        clearTimeout(timeout);
         const result = response as { idList?: Array<{ idType: string; idValue: string }> };
         const lgudid = result.idList?.find((item) => item.idType === "LGUDID")?.idValue;
         if (lgudid) resolve(lgudid);
         else reject(new Error("LGUDID indisponível."));
       },
-      onFailure: () => reject(new Error("Não foi possível obter a identidade da TV.")),
+      onFailure: () => {
+        clearTimeout(timeout);
+        reject(new Error("Não foi possível obter a identidade da TV."));
+      },
     });
   });
 
@@ -59,10 +76,10 @@ export async function getLgDeviceIdentity(): Promise<{
     id,
     model: typeof deviceInfo.modelName === "string" ? deviceInfo.modelName : undefined,
     osVersion:
-      typeof deviceInfo.version === "string"
-        ? deviceInfo.version
-        : typeof deviceInfo.sdkVersion === "string"
-          ? deviceInfo.sdkVersion
+      typeof deviceInfo.sdkVersion === "string"
+        ? deviceInfo.sdkVersion
+        : typeof deviceInfo.version === "string"
+          ? deviceInfo.version
           : undefined,
   };
 }

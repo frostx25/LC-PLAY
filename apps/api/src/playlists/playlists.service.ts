@@ -6,12 +6,14 @@ import { parseBody } from "../common/parse";
 import type { AdminTokenPayload } from "../common/types";
 import { PrismaService } from "../prisma/prisma.service";
 import { encryptedPlaylistData } from "./playlist-data";
+import { CatalogService } from "../catalog/catalog.service";
 
 @Injectable()
 export class PlaylistsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly catalog: CatalogService,
   ) {}
 
   list(admin: AdminTokenPayload) {
@@ -31,6 +33,37 @@ export class PlaylistsService {
       },
       orderBy: { createdAt: "desc" },
     });
+  }
+
+  async diagnose(admin: AdminTokenPayload, playlistId: string) {
+    const playlist = await this.findOwned(admin.tenantId, playlistId);
+    const result = await this.catalog.diagnose(playlist);
+    const lastError = [result.m3u, result.epg].filter((check) => check.status === "ERROR").map((check) => check.message).join(" ") || null;
+    await this.prisma.$transaction(async (tx) => {
+      await tx.playlist.updateMany({
+        where: { id: playlist.id, tenantId: admin.tenantId, updatedAt: playlist.updatedAt },
+        data: {
+          lastError,
+          ...(playlist.type === "M3U" && playlist.status !== "PAUSED" ? { status: result.m3u.status === "OK" ? "ACTIVE" : "ERROR" } : {}),
+          ...(result.m3u.status === "OK" ? { itemCount: result.m3u.count, lastSyncAt: new Date(result.checkedAt) } : {}),
+        },
+      });
+      await tx.auditLog.create({ data: {
+        tenantId: admin.tenantId, actorType: "ADMIN", actorId: admin.sub,
+        action: "playlist.diagnosed", entityType: "Playlist", entityId: playlist.id,
+        metadata: { name: playlist.name, checkedAt: result.checkedAt, durationMs: result.durationMs, m3u: { ...result.m3u }, epg: { ...result.epg } },
+      } });
+    });
+    return result;
+  }
+
+  async latestDiagnostic(admin: AdminTokenPayload, playlistId: string) {
+    await this.findOwned(admin.tenantId, playlistId);
+    const log = await this.prisma.auditLog.findFirst({
+      where: { tenantId: admin.tenantId, entityType: "Playlist", entityId: playlistId, action: "playlist.diagnosed" },
+      orderBy: { createdAt: "desc" }, select: { metadata: true },
+    });
+    return log?.metadata ?? null;
   }
 
   async create(admin: AdminTokenPayload, input: unknown) {
