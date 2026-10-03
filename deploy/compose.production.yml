@@ -1,0 +1,73 @@
+name: lc-play-production
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: lc_play
+      POSTGRES_USER: lc_play
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U lc_play -d lc_play"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    mem_limit: 512m
+    logging: &logging
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  api:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      target: api
+    restart: unless-stopped
+    env_file: .env.production
+    environment:
+      NODE_ENV: production
+      API_PORT: 4100
+      DATABASE_URL: postgresql://lc_play:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@postgres:5432/lc_play?schema=public
+      ADMIN_WEB_URL: https://lcplay.thxtech.site
+      PLAYER_WEB_ORIGINS: null,file://,file://com.lcplay.tv,file://com.lcplay.tv-webos
+    ports:
+      - "127.0.0.1:4130:4100"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:4100/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    mem_limit: 1024m
+    logging: *logging
+
+  admin:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      target: admin
+    restart: unless-stopped
+    environment:
+      API_INTERNAL_URL: http://api:4100
+    ports:
+      - "127.0.0.1:3030:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/login').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    mem_limit: 768m
+    logging: *logging
+
+volumes:
+  postgres:

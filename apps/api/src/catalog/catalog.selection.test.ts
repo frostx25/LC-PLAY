@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { CatalogItem, CatalogKind, DeviceCatalog } from "@lc-play/contracts";
-import { selectCatalogKind } from "./catalog.selection";
+import { catalogSeriesIndex, selectCatalogKind } from "./catalog.selection";
 
 function item(id: string, kind: CatalogKind, group: string): CatalogItem {
   return { id, kind, group, name: id, streamUrl: "https://example.invalid/media", logo: null, tvgId: null, series: null, now: null, next: null };
@@ -33,4 +33,23 @@ test("indica truncamento da seção e preserva o catálogo compartilhado", () =>
   assert.equal(catalog.items.length, 4);
   assert.equal(catalog.kind, undefined);
   assert.equal(selectCatalogKind(catalog), catalog);
+});
+
+test("índice compacto inclui todas as séries e não envia episódios à TV", () => {
+  const episodes = Array.from({ length: 900 * 12 }, (_, index) => ({
+    ...item(`episode-${index}`, "SERIES", "Séries | Netflix"),
+    series: { title: `Série ${Math.floor(index / 12)}`, season: 1, episode: index % 12 + 1 },
+  }));
+  const full = { ...catalog, items: episodes, truncated: false, summary: { total: episodes.length, live: 0, movies: 0, series: episodes.length } };
+  const result = selectCatalogKind(full, "SERIES", true);
+  assert.equal(result.items.length, 0);
+  assert.equal(result.seriesCollections?.length, 900);
+  assert.equal(result.seriesCollections?.[899]?.episodeCount, 12);
+  assert.deepEqual(result.groups, [{ name: "Netflix", count: 900 }]);
+  assert.equal(result.truncated, false);
+  assert.equal(JSON.stringify(result).includes("streamUrl"), false);
+  const index = catalogSeriesIndex(full);
+  assert.equal(index, catalogSeriesIndex(full));
+  assert.equal(index.get("episode-10788")?.episodes.at(-1)?.series?.episode, 12);
+  assert.equal(selectCatalogKind(full, "SERIES").items.length, 10800);
 });

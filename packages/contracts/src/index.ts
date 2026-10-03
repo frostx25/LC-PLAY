@@ -157,6 +157,37 @@ export interface EpgProgramme {
   endsAt: string;
 }
 
+export interface DeviceEpgSource {
+  sourceId: string;
+  revision: string;
+  providerApiUrl: string | null;
+}
+
+export interface DeviceMediaSource extends DeviceEpgSource {
+  source: { id: string; name: string; type: PlaylistType };
+  sourceUrl: string;
+  epgUrl: string | null;
+}
+
+export interface NativeCatalogSnapshot {
+  catalogId: string;
+  catalog: Omit<DeviceCatalog, "items" | "seriesCollections" | "kind">;
+  revision: string;
+}
+
+export interface NativeCatalogPage {
+  items: CatalogItem[];
+  seriesCollections?: CatalogSeries[];
+  nextOffset: number | null;
+}
+
+export interface ChannelEpg {
+  status: "AVAILABLE" | "UNAVAILABLE" | "ERROR";
+  now: EpgProgramme | null;
+  next: EpgProgramme | null;
+  programmes: EpgProgramme[];
+}
+
 export interface CatalogItem {
   id: string;
   name: string;
@@ -174,7 +205,17 @@ export interface CatalogItem {
   next: EpgProgramme | null;
 }
 
+export interface CatalogSeries {
+  id: string;
+  title: string;
+  group: string;
+  logo: string | null;
+  episodeCount: number;
+}
+
 export interface DeviceCatalog {
+  nativeCatalogId?: string;
+  nativeRevision?: string;
   kind?: CatalogKind;
   source: {
     id: string;
@@ -186,12 +227,15 @@ export interface DeviceCatalog {
     live: number;
     movies: number;
     series: number;
+    seriesTitles?: number;
   };
   groups: Array<{ name: string; count: number }>;
   items: CatalogItem[];
+  seriesCollections?: CatalogSeries[];
   truncated: boolean;
   refreshedAt: string;
   epg: {
+    mode?: "CHANNEL";
     status: "AVAILABLE" | "UNAVAILABLE" | "ERROR";
     programmes: number;
   };

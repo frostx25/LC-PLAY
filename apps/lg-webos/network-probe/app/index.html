@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LC PLAY - Diagnostico de rede</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 64px 80px; background: #090b10; color: #f4f5f8; font: 28px Arial, sans-serif; }
+    header { display: flex; align-items: center; gap: 24px; border-bottom: 1px solid #34373e; padding-bottom: 24px; }
+    img { width: 80px; height: 80px; }
+    h1 { font-size: 40px; margin: 0; }
+    #runtime { color: #b7bcc6; margin: 8px 0 0; font-size: 24px; }
+    #status { margin: 40px 0 24px; color: #eabf7c; }
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    th, td { padding: 20px 16px; border-bottom: 1px solid #34373e; text-align: left; overflow-wrap: break-word; }
+    th { font-size: 24px; color: #b7bcc6; }
+    .ok { color: #94d3c6; }
+    .error { color: #ff9188; }
+  </style>
+</head>
+<body>
+  <header><img src="icon.png" alt=""><div><h1>LC PLAY</h1><p id="runtime">Diagnostico de rede</p></div></header>
+  <p id="status">Aguardando teste</p>
+  <table><thead><tr><th>Fonte</th><th>Arquivo</th><th>Resultado</th><th>Tamanho</th><th>Tempo</th></tr></thead><tbody id="results"></tbody></table>
+  <script>
+    var bridges = [];
+    function callService(method, parameters, timeoutMs) {
+      return new Promise(function (resolve, reject) {
+        if (!window.PalmServiceBridge) return reject(new Error('Disponivel somente na TV'));
+        var bridge = new PalmServiceBridge();
+        bridges.push(bridge);
+        var timer = setTimeout(function () { bridge.cancel(); finish(); reject(new Error('Tempo limite do servico')); }, timeoutMs);
+        function finish() { clearTimeout(timer); bridges = bridges.filter(function (entry) { return entry !== bridge; }); }
+        bridge.onservicecallback = function (text) {
+          finish();
+          var result;
+          try { result = JSON.parse(text); } catch (_) { return reject(new Error('Resposta invalida do servico')); }
+          if (result.returnValue === false) return reject(new Error(result.errorText || 'Falha do servico'));
+          resolve(result);
+        };
+        bridge.call('luna://com.lcplay.networktest.service/' + method, JSON.stringify(parameters || {}));
+      });
+    }
+    function appendResult(name, kind, result) {
+      var row = document.createElement('tr');
+      var success = result.http === 200 && result.headerValid && !result.error;
+      var values = [name, kind, result.error || ('HTTP ' + result.http + (result.complete ? ' / completo' : ' / amostra')), ((result.bytes || 0) / 1048576).toFixed(2) + ' MiB', ((result.durationMs || 0) / 1000).toFixed(1) + ' s'];
+      values.forEach(function (value, index) { var cell = document.createElement('td'); cell.textContent = value; if (index === 2) cell.className = success ? 'ok' : 'error'; row.appendChild(cell); });
+      document.getElementById('results').appendChild(row);
+    }
+    window.runNetworkProbe = function (parameters) {
+      document.getElementById('status').textContent = 'Teste em andamento';
+      return callService('probe', parameters, 210000).then(function (result) {
+        appendResult(result.source, parameters.full ? 'M3U completa' : 'M3U', result.m3u);
+        if (result.epg) appendResult(result.source, parameters.full ? 'EPG completo' : 'EPG', result.epg);
+        document.getElementById('status').textContent = 'Teste concluido';
+        return result;
+      }, function (error) { document.getElementById('status').textContent = error.message; throw error; });
+    };
+    callService('runtime', {}, 10000).then(function (result) {
+      document.getElementById('runtime').textContent = 'Servico local / Node.js ' + result.nodeVersion;
+    }).catch(function (error) { document.getElementById('status').textContent = error.message; });
+    document.addEventListener('keydown', function (event) { if (event.keyCode === 461 && window.PalmSystem) window.PalmSystem.platformBack(); });
+  </script>
+</body>
+</html>

@@ -22,7 +22,7 @@ export default defineConfig({
   ],
   build: {
     ...config.build,
-    outDir: 'dist-tv',
+    outDir: process.env.LC_PLAY_TV_OUTPUT_DIR || 'dist-tv',
     lib: {
       entry: fileURLToPath(new URL('./src/main.tsx', import.meta.url)),
       name: 'LCPlay',

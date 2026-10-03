@@ -1,0 +1,5 @@
+{
+  "id": "com.lcplay.tv.guide",
+  "description": "LC PLAY channel programme guide",
+  "services": [{ "name": "com.lcplay.tv.guide", "description": "Channel EPG" }]
+}

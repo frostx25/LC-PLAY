@@ -14,17 +14,27 @@ O pacote usa `vite.tv.config.ts`, entrada HTML clássica e JavaScript IIFE em `d
 
 A biblioteca oficial `webOSTV.js` 1.2.13 e sua licença ficam em `public/vendor`. A identidade usa o LGUDID real quando executado no aparelho, sem substituir erros por uma identidade de navegador.
 
+## Catálogo nativo (03/10/2026)
+
+O pacote inclui o JavaScript Service `com.lcplay.tv.guide`, compatível com Node 8 da C1. O player autenticado consulta `v1/device/media/source` para obter somente a fonte vinculada ao aparelho. A API valida ativação, validade e vínculo; não baixa a lista nessa rota.
+
+Na LG, o serviço baixa a M3U diretamente por `http`/`https`, grava um arquivo temporário privado e depois processa em lotes. O parser é o mesmo da API, compilado pelo comando `build:service`. O catálogo fica em arquivos JSONL em `/tmp/com.lcplay.tv.catalog`; resultados são enviados em páginas pequenas pelo Luna. Séries usam um índice de títulos e carregam todos os episódios somente ao abrir os detalhes. Reiniciar a TV elimina esse cache temporário.
+
+O serviço aplica limite de 150 MiB e 90 segundos ao download. O frontend aguarda até 110 segundos pela importação completa, incluindo processamento. Requisições simultâneas compartilham uma importação; o cache vale cinco minutos, e Recarregar força uma nova importação. Atualizações só substituem o catálogo após sucesso. Desconectar ou perder autorização limpa o cache local. URLs com credenciais não devem ser gravadas em logs ou relatórios.
+
+O EPG é consultado pelo mesmo serviço, por canal: API do fornecedor quando disponível, com XMLTV nativo como alternativa. Vídeo e capas continuam sendo acessados diretamente pela TV. O navegador de desenvolvimento continua usando o catálogo da API; a integração não migra o Roku.
+
 ## Desempenho
 
-- O aparelho solicita apenas a seção aberta (`LIVE`, `MOVIE` ou `SERIES`). Ao trocar de seção, libera o catálogo anterior e cancela a requisição pendente.
+- A interface carrega somente a seção aberta (`LIVE`, `MOVIE` ou `SERIES`) e mantém as seções recentes em cache. Trocar de seção cancela a resposta pendente, sem interromper uma importação compartilhada no serviço.
 - A lista ao vivo renderiza a janela visível e quatro linhas extras de cada lado. O deslocamento mantém a altura total da lista e os índices acessíveis.
-- Contagens por categoria e índices de busca são calculados uma vez por catálogo. Filmes e séries exibem 24 cards por página.
+- Contagens por categoria e índices de busca são calculados uma vez por catálogo. Filmes e séries usam rolagem contínua virtualizada, com cinco colunas na TV.
 - O vídeo começa ao escolher um canal. Busca, categoria e favoritos mantêm o stream selecionado.
 - O player nativo tem prioridade. HLS.js é carregado apenas quando necessário, com metas de buffer de 15 segundos, máximo de 30 segundos, sem histórico de buffer. O limite configurado de bytes não representa um limite da memória total da TV.
 - Há somente um vídeo em reprodução; fechar ou substituir o player pausa e libera seus recursos.
 - Falhas temporárias permitem até duas reconexões e uma recuperação de decodificação por tentativa. Após falha persistente, a prévia e a tela cheia mostram uma mensagem e um botão para tentar novamente. A ausência de imagem com áudio em andamento também é detectada, exceto para canais identificados como rádio.
 
-A API ainda limita o catálogo retido a 2.000 canais, 1.500 filmes e 5.000 episódios de até 750 séries. A paginação completa no servidor continua pendente.
+Não há os antigos cortes de canais, filmes, títulos ou episódios. Toda a lista válida e única é indexada, respeitando o limite de tamanho do arquivo. Categorias adultas permanecem bloqueadas e ocultas das buscas/favoritos até autorizar com PIN; o inicial é `0000`.
 
 ## Compatibilidade inicial
 

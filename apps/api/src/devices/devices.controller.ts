@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Header,
   Param,
   Patch,
   Post,
@@ -121,8 +122,28 @@ export class TvDeviceController {
 
   @Get("catalog")
   @UseGuards(DeviceTokenGuard)
-  catalogForDevice(@CurrentDevice() device: DevicePrincipal, @Query("kind") kind?: string) {
-    return this.catalog.forDevice(device, parseBody(catalogKindSchema.optional(), kind));
+  catalogForDevice(@CurrentDevice() device: DevicePrincipal, @Query("kind") kind?: string, @Query("compact") compact?: string) {
+    return this.catalog.forDevice(device, parseBody(catalogKindSchema.optional(), kind), compact === "true");
+  }
+
+  @Get("catalog/series/:seriesId")
+  @UseGuards(DeviceTokenGuard)
+  seriesForDevice(@CurrentDevice() device: DevicePrincipal, @Param("seriesId") seriesId: string) {
+    return this.catalog.seriesForDevice(device, seriesId);
+  }
+
+  @Get("epg/source")
+  @Header("Cache-Control", "no-store")
+  @UseGuards(DeviceTokenGuard)
+  epgSourceForDevice(@CurrentDevice() device: DevicePrincipal) {
+    return this.catalog.epgSourceForDevice(device);
+  }
+
+  @Get("media/source")
+  @Header("Cache-Control", "no-store")
+  @UseGuards(DeviceTokenGuard)
+  mediaSourceForDevice(@CurrentDevice() device: DevicePrincipal) {
+    return this.catalog.mediaSourceForDevice(device);
   }
 }
 

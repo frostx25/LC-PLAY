@@ -66,7 +66,9 @@ export function useSpatialNavigation(enabled = true) {
 
     window.addEventListener("keydown", onKeyDown);
     const first = document.querySelector<HTMLElement>("[data-focusable]:not([disabled])");
-    const focusTimer = window.setTimeout(() => first?.focus(), 80);
+    const focusTimer = window.setTimeout(() => {
+      if (!(document.activeElement instanceof HTMLInputElement) && !document.querySelector(".parental-dialog")) first?.focus();
+    }, 80);
     return () => {
       window.removeEventListener("keydown", onKeyDown);
       window.clearTimeout(focusTimer);

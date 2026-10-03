@@ -1,0 +1,14 @@
+{
+  "id": "com.lcplay.networktest",
+  "version": "0.1.0",
+  "vendor": "LC PLAY",
+  "type": "web",
+  "main": "index.html",
+  "title": "LC PLAY - Diagnostico",
+  "resolution": "1920x1080",
+  "icon": "icon.png",
+  "largeIcon": "largeIcon.png",
+  "backgroundColor": "#090B10",
+  "disableBackHistoryAPI": true,
+  "requiredACG": []
+}

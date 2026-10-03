@@ -1,0 +1,10 @@
+tunnel: REPLACE_WITH_TUNNEL_UUID
+credentials-file: /run/credentials/lcplay-cloudflared.service/tunnel.json
+protocol: http2
+
+ingress:
+  - hostname: lcplay.thxtech.site
+    service: http://127.0.0.1:8087
+  - hostname: api-lcplay.thxtech.site
+    service: http://127.0.0.1:8087
+  - service: http_status:404

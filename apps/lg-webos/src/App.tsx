@@ -9,12 +9,11 @@ import {
   type FormEvent,
   type ReactNode,
 } from "react";
-import type { CatalogItem, CatalogKind, DeviceCatalog } from "@lc-play/contracts";
+import type { CatalogItem, CatalogKind, ChannelEpg, DeviceCatalog } from "@lc-play/contracts";
 import {
   ArrowLeft,
   CalendarDays,
   Check,
-  ChevronLeft,
   ChevronRight,
   Clock3,
   Film,
@@ -25,18 +24,25 @@ import {
   ListVideo,
   LoaderCircle,
   LogOut,
+  LockKeyhole,
   MonitorPlay,
   Play,
   Radio,
   RefreshCw,
-  Search,
   Settings,
   Tv,
   Wifi,
 } from "lucide-react";
 import { isAuthenticationFailure, request } from "./lib/device-api";
 import { APP_VERSION } from "./lib/release";
+import { SearchField } from "./components/SearchField";
+import { VirtualPosterGrid } from "./components/VirtualPosterGrid";
+import { ParentalControlProvider } from "./components/ParentalControl";
+import { useParentalControl } from "./lib/parental-context";
+import { isAdultGroup } from "./lib/parental";
 import { getLgDeviceIdentity } from "./lib/webos";
+import { loadChannelEpg, nativeGuideSupported } from "./lib/channel-epg";
+import { clearNativeCatalog, loadNativeCatalog, loadNativeEpisodes, nativeCatalogSupported } from "./lib/native-catalog";
 import { useSpatialNavigation } from "./lib/spatial-navigation";
 import { CHANNEL_ROW_HEIGHT, virtualChannelRange } from "./lib/virtual-range";
 import { cleanGroupLabel, normalizeText, orderByGroup, orderGroups } from "./lib/catalog-order";
@@ -63,10 +69,10 @@ type SeriesCollection = {
   group: string;
   logo: string | null;
   episodes: CatalogItem[];
+  episodeCount: number;
 };
 
 const TOKEN_KEY = "lc_play_device_token";
-const PAGE_SIZE = 24;
 const CATALOG_CACHE_MS = 5 * 60_000;
 const clockFormatter = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
@@ -91,6 +97,7 @@ function App() {
     catalogRequestRef.current?.abort();
     catalogRequestRef.current = null;
     catalogCacheRef.current.clear();
+    clearNativeCatalog();
     loadedKindRef.current = null;
     kindRef.current = "LIVE";
     localStorage.removeItem(TOKEN_KEY);
@@ -131,10 +138,12 @@ function App() {
     catalogRequestRef.current = controller;
     setCatalogLoading(true);
     try {
-      const nextCatalog = await request<DeviceCatalog>(`v1/device/catalog?kind=${kind}`, { signal: controller.signal }, token, undefined, 100_000);
+      const nextCatalog = nativeCatalogSupported()
+        ? await loadNativeCatalog(kind, token, controller.signal, options.force)
+        : await request<DeviceCatalog>(`v1/device/catalog?kind=${kind}&compact=true`, { signal: controller.signal }, token, undefined, 115_000);
       if (!controller.signal.aborted) {
         for (const entry of catalogCacheRef.current.values()) {
-          if (entry.catalog.source.id !== nextCatalog.source.id) {
+          if (entry.catalog.source.id !== nextCatalog.source.id || entry.catalog.nativeCatalogId !== nextCatalog.nativeCatalogId) {
             catalogCacheRef.current.clear();
             break;
           }
@@ -397,7 +406,11 @@ function ActivationScreen({
   );
 }
 
-function PlayerExperience({
+function PlayerExperience(props: Parameters<typeof PlayerContent>[0]) {
+  return <ParentalControlProvider key={`${props.configuration?.device.id}:${props.configuration?.playlist?.id}`}><PlayerContent {...props} /></ParentalControlProvider>;
+}
+
+function PlayerContent({
   configuration,
   catalog,
   loading,
@@ -418,20 +431,22 @@ function PlayerExperience({
 }) {
   const [view, setView] = useState<View>("HOME");
   const [group, setGroup] = useState("Todos");
-  const [page, setPage] = useState(0);
   const [playing, setPlaying] = useState<CatalogItem | null>(null);
   const [selectedSeries, setSelectedSeries] = useState<SeriesCollection | null>(null);
+  const parental = useParentalControl();
+  const selectGroup = (next: string) => { if (isAdultGroup(next)) parental.authorize(() => setGroup(next)); else setGroup(next); };
+  const playItem = (item: CatalogItem) => { if (isAdultGroup(item.group)) parental.authorize(() => setPlaying(item)); else setPlaying(item); };
 
   const openView = (nextView: View) => {
     if (nextView === "LIVE" || nextView === "MOVIE" || nextView === "SERIES") onCatalogKind(nextView);
     setGroup("Todos");
-    setPage(0);
     setSelectedSeries(null);
     setView(nextView);
   };
 
   useEffect(() => {
     const onBack = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return;
       if (!(event.key === "Escape" || event.key === "Backspace" || event.keyCode === 461)) return;
       if (event.key === "Backspace" && document.activeElement instanceof HTMLInputElement) return;
       if (playing) {
@@ -451,14 +466,17 @@ function PlayerExperience({
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
+      if (document.activeElement instanceof HTMLInputElement || document.querySelector(".parental-dialog")) return;
+      const visible = (selector: string) => Array.from(document.querySelectorAll<HTMLElement>(selector)).find((element) => element.offsetParent !== null);
       const target = playing
         ? document.querySelector<HTMLElement>(playing.kind === "LIVE" ? ".live-preview.is-fullscreen" : ".stream-player")
-        : document.querySelector<HTMLElement>(".live-channel-row.selected .live-channel-pick") ??
-          document.querySelector<HTMLElement>("[data-autofocus][data-focusable]");
+        : visible(".live-channel-row.selected .live-channel-pick") ??
+          visible("[data-catalog-selected]") ??
+          visible("[data-autofocus][data-focusable]");
       target?.focus();
     }, 80);
     return () => window.clearTimeout(timer);
-  }, [group, page, playing, selectedSeries, view]);
+  }, [group, playing, selectedSeries, view]);
 
   return (
     <main className="tv-shell">
@@ -492,8 +510,9 @@ function PlayerExperience({
           demo={demo}
           fullscreenOpen={playing !== null}
           onOpen={openView}
-          onPlay={setPlaying}
+          onPlay={playItem}
           onRefresh={onRefresh}
+          onAuthenticationFailure={onDisconnect}
         />
       ) : null}
       {view === "MOVIE" ? (
@@ -503,30 +522,28 @@ function PlayerExperience({
           loading={loading}
           error={error}
           group={group}
-          page={page}
-          onGroup={(nextGroup) => { setGroup(nextGroup); setPage(0); }}
-          onPage={setPage}
+          onGroup={selectGroup}
           onBack={() => setView("HOME")}
-          onPlay={setPlaying}
+          onPlay={playItem}
           onRefresh={onRefresh}
         />
       ) : null}
-      {view === "SERIES" && !selectedSeries ? (
+      {view === "SERIES" ? (
+        <div className="series-browser" hidden={selectedSeries !== null}>
         <SeriesScreen
           catalog={catalog}
           loading={loading}
           error={error}
           group={group}
-          page={page}
-          onGroup={(nextGroup) => { setGroup(nextGroup); setPage(0); }}
-          onPage={setPage}
+          onGroup={selectGroup}
           onBack={() => setView("HOME")}
-          onSelect={setSelectedSeries}
+          onSelect={(series) => { if (isAdultGroup(series.group)) parental.authorize(() => setSelectedSeries(series)); else setSelectedSeries(series); }}
           onRefresh={onRefresh}
         />
+        </div>
       ) : null}
       {view === "SERIES" && selectedSeries ? (
-        <SeriesDetails series={selectedSeries} onBack={() => setSelectedSeries(null)} onPlay={setPlaying} />
+        <SeriesDetails key={selectedSeries.id} series={selectedSeries} catalog={catalog} onAuthenticationFailure={onDisconnect} onBack={() => setSelectedSeries(null)} onPlay={playItem} />
       ) : null}
       {playing && playing.kind !== "LIVE" ? <StreamPlayer item={playing} /> : null}
     </main>
@@ -576,7 +593,7 @@ function HomeScreen({
   }> = [
     { view: "LIVE", label: "TV ao vivo", caption: "Canais e programação", count: catalog?.summary.live, className: "menu-live", icon: <Radio /> },
     { view: "MOVIE", label: "Filmes", caption: "Catálogo por categoria", count: catalog?.summary.movies, className: "menu-movies", icon: <Film /> },
-    { view: "SERIES", label: "Séries", caption: "Episódios organizados", count: catalog?.summary.series, className: "menu-series", icon: <Tv /> },
+    { view: "SERIES", label: "Séries", caption: "Temporadas e episódios", count: catalog?.summary.seriesTitles ?? catalog?.summary.series, className: "menu-series", icon: <Tv /> },
   ];
 
   return (
@@ -612,7 +629,7 @@ function HomeScreen({
         </button>
       </div>
       <div className="home-footer">
-        <span><Wifi />{catalog?.epg.status === "AVAILABLE" ? "EPG atualizado" : "EPG indisponível"}</span>
+        <span><Wifi />{catalog?.epg.mode === "CHANNEL" ? "EPG por canal" : catalog?.epg.status === "AVAILABLE" ? "EPG atualizado" : "EPG indisponível"}</span>
         <span>{error || (catalog ? `${formatCount(catalog.summary.total)} itens disponíveis` : loading ? "Carregando sua fonte..." : "Vincule uma fonte no painel")}</span>
       </div>
     </section>
@@ -628,6 +645,7 @@ function LiveTvScreen({
   onOpen,
   onPlay,
   onRefresh,
+  onAuthenticationFailure,
 }: {
   catalog: DeviceCatalog | null;
   loading: boolean;
@@ -637,9 +655,11 @@ function LiveTvScreen({
   onOpen: (view: View) => void;
   onPlay: (item: CatalogItem) => void;
   onRefresh: () => Promise<void>;
+  onAuthenticationFailure: () => void;
 }) {
   const time = useClock();
   const channels = useMemo(() => orderByGroup(catalog?.items.filter((item) => item.kind === "LIVE") ?? [], "LIVE", (item) => item.group), [catalog]);
+  const parental = useParentalControl();
   const groups = useMemo(() => buildGroups(channels, "LIVE"), [channels]);
   const [group, setGroup] = useState("Todos");
   const [query, setQuery] = useState("");
@@ -663,13 +683,41 @@ function LiveTvScreen({
   const normalizedQuery = normalizeText(query);
   const filtered = useMemo(() => {
     const items = channelIndex.filter((entry) =>
+      (parental.unlocked || !isAdultGroup(entry.item.group)) &&
       (group === "Todos" || entry.group === group) &&
       (!favoriteFilter || favoriteFilter.has(entry.item.id)) &&
       (!normalizedQuery || entry.search.includes(normalizedQuery)),
     ).map((entry) => entry.item);
     return items;
-  }, [channelIndex, group, favoriteFilter, normalizedQuery]);
-  const selected = channels.find((item) => item.id === selectedId) ?? null;
+  }, [channelIndex, group, favoriteFilter, normalizedQuery, parental.unlocked]);
+  const selected = channels.find((item) => item.id === selectedId && (parental.unlocked || !isAdultGroup(item.group))) ?? null;
+  const [channelGuide, setChannelGuide] = useState<{ key: string; guide: ChannelEpg | null; loading: boolean } | null>(null);
+  const guideKey = `${catalog?.source.id}:${selected?.id}`;
+  const activeGuide = channelGuide?.key === guideKey ? channelGuide : null;
+  const programme = {
+    now: activeGuide?.guide?.now ?? selected?.now ?? null,
+    next: activeGuide?.guide?.next ?? selected?.next ?? null,
+  };
+
+  useEffect(() => {
+    if (demo || !selected || !catalog || !nativeGuideSupported()) return;
+    const currentTime = Date.now();
+    if (selected.now && selected.next && Date.parse(selected.now.endsAt) > currentTime && Date.parse(selected.next.endsAt) > currentTime) return;
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (!token) return;
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      setChannelGuide({ key: guideKey, guide: null, loading: true });
+      void loadChannelEpg(catalog.source.id, selected, token, controller.signal, catalog.nativeCatalogId).then((guide) => {
+        if (!controller.signal.aborted) setChannelGuide({ key: guideKey, guide, loading: false });
+      }).catch((caught: unknown) => {
+        if (controller.signal.aborted) return;
+        setChannelGuide({ key: guideKey, guide: null, loading: false });
+        if (isAuthenticationFailure(caught)) onAuthenticationFailure();
+      });
+    }, 200);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [catalog, selected, guideKey, demo, time, onAuthenticationFailure]);
 
   const toggleFavorite = useCallback((id: string) => {
     const next = favoriteSet.has(id) ? favorites.filter((favorite) => favorite !== id) : [...favorites, id];
@@ -700,8 +748,8 @@ function LiveTvScreen({
               <button data-focusable className={group === "Todos" && !favoritesOnly ? "active" : ""} onClick={() => { setGroup("Todos"); setFavoritesOnly(false); }} aria-pressed={group === "Todos" && !favoritesOnly}><span>Todos os canais</span><small>{channels.length}</small></button>
               <button data-focusable className={favoritesOnly ? "active" : ""} onClick={() => { setGroup("Todos"); setFavoritesOnly(true); }} aria-pressed={favoritesOnly}><span><Heart />Favoritos</span><small>{channels.filter((item) => favoriteSet.has(item.id)).length}</small></button>
               {groups.filter((name) => name !== "Todos").map((name) => (
-                <button key={name} data-focusable title={name} aria-pressed={group === name && !favoritesOnly} className={group === name && !favoritesOnly ? "active" : ""} onClick={() => { setGroup(name); setFavoritesOnly(false); }}>
-                  <span>{name}</span><small>{name === "Todos" ? channels.length : groupCounts.get(name) ?? 0}</small>
+                <button key={name} data-focusable title={name} aria-pressed={group === name && !favoritesOnly} className={group === name && !favoritesOnly ? "active" : ""} onClick={() => { const select = () => { setGroup(name); setFavoritesOnly(false); }; if (isAdultGroup(name)) parental.authorize(select); else select(); }}>
+                  <span>{isAdultGroup(name) && !parental.unlocked ? <LockKeyhole size={18} /> : null}{name}</span><small>{name === "Todos" ? channels.length : groupCounts.get(name) ?? 0}</small>
                 </button>
               ))}
             </div>
@@ -709,7 +757,7 @@ function LiveTvScreen({
 
           <section className="live-channel-column" aria-label="Canais">
             <div className="live-channel-tools">
-              <label className="live-search"><Search /><input data-focusable value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar canal" aria-label="Buscar canal" /></label>
+              <SearchField className="live-search" value={query} onChange={setQuery} placeholder="Buscar canal" />
             </div>
             <VirtualChannelList items={filtered} selectedId={selected?.id ?? null} favorites={favoriteSet} onSelect={(id) => { if (id === selectedId && selected) onPlay(selected); else setSelectedId(id); }} onFavorite={toggleFavorite}>
               {loading && !catalog ? <p className="live-empty">Carregando canais...</p> : null}
@@ -731,11 +779,11 @@ function LiveTvScreen({
             </div>
             <div className="live-selected-info"><span className="live-selected-icon"><Radio /></span><div><h1>{selected?.name ?? "Escolha um canal"}</h1><span>{selected ? cleanGroupLabel(selected.group) : "TV ao vivo"}</span></div></div>
             <div className="live-programme">
-              <div className="live-programme-title"><span>PROGRAMAÇÃO</span><span>{catalog?.epg.status === "AVAILABLE" ? "EPG disponível" : "Sem EPG"}</span></div>
+              <div className="live-programme-title"><span>PROGRAMAÇÃO</span><span>{activeGuide?.loading ? "Carregando EPG" : programme.now || programme.next ? "EPG disponível" : "Sem EPG"}</span></div>
               {selected ? <>
-                <div className="live-now"><span>AGORA</span><div><small>{selected.now ? `${formatTime(selected.now.startsAt)} – ${formatTime(selected.now.endsAt)}` : "Horário não informado"}</small><h2>{selected.now?.title ?? "Programação não informada"}</h2><p>{selected.now?.description ?? "Escolha o canal para assistir à transmissão ao vivo."}</p></div></div>
-                <div className="live-progress"><span style={{ width: `${programmeProgress(selected.now)}%` }} /></div>
-                <div className="live-next"><span>A SEGUIR</span><strong>{selected.next ? `${formatTime(selected.next.startsAt)} · ${selected.next.title}` : "Sem informação"}</strong></div>
+                <div className="live-now"><span>AGORA</span><div><small>{programme.now ? `${formatTime(programme.now.startsAt)} – ${formatTime(programme.now.endsAt)}` : "Horário não informado"}</small><h2>{programme.now?.title ?? "Programação não informada"}</h2><p>{programme.now?.description ?? "Escolha o canal para assistir à transmissão ao vivo."}</p></div></div>
+                <div className="live-progress"><span style={{ width: `${programmeProgress(programme.now)}%` }} /></div>
+                <div className="live-next"><span>A SEGUIR</span><strong>{programme.next ? `${formatTime(programme.next.startsAt)} · ${programme.next.title}` : "Sem informação"}</strong></div>
               </> : <p className="live-programme-empty">Selecione um canal para ver a programação.</p>}
             </div>
           </section>
@@ -820,16 +868,14 @@ function CatalogSidebar({ groups, counts, group, query, placeholder, onQuery, on
   onQuery: (value: string) => void;
   onGroup: (value: string) => void;
 }) {
+  const parental = useParentalControl();
   return (
     <aside className="vod-sidebar">
-      <label className="catalog-search">
-        <Search />
-        <input data-focusable value={query} onChange={(event) => onQuery(event.target.value)} placeholder={placeholder} aria-label={placeholder} />
-      </label>
+      <SearchField className="catalog-search" value={query} onChange={onQuery} placeholder={placeholder} />
       <nav className="vod-categories" aria-label="Categorias">
         {groups.map((name) => (
           <button key={name} data-focusable data-autofocus={name === group ? "" : undefined} className={name === group ? "active" : ""} onClick={() => onGroup(name)} title={name}>
-            <span>{name}</span><small>{formatCount(counts.get(name) ?? 0)}</small>
+            <span>{isAdultGroup(name) && !parental.unlocked ? <LockKeyhole size={18} /> : null}{name}</span><small>{formatCount(counts.get(name) ?? 0)}</small>
           </button>
         ))}
       </nav>
@@ -843,9 +889,7 @@ function CatalogScreen({
   loading,
   error,
   group,
-  page,
   onGroup,
-  onPage,
   onBack,
   onPlay,
   onRefresh,
@@ -855,26 +899,23 @@ function CatalogScreen({
   loading: boolean;
   error: string;
   group: string;
-  page: number;
   onGroup: (group: string) => void;
-  onPage: (page: number) => void;
   onBack: () => void;
   onPlay: (item: CatalogItem) => void;
   onRefresh: () => Promise<void>;
 }) {
   const [query, setQuery] = useState("");
   const [layout, setLayout] = useState<"GRID" | "GUIDE">("GRID");
+  const parental = useParentalControl();
   const allItems = useMemo(() => orderByGroup(catalog?.items.filter((item) => item.kind === kind) ?? [], kind, (item) => item.group), [catalog, kind]);
   const groups = useMemo(() => buildGroups(allItems, kind), [allItems, kind]);
   const normalizedQuery = normalizeText(query);
   const filtered = allItems.filter((item) => {
     const inGroup = group === "Todos" || cleanGroupLabel(item.group) === group;
     const matchesQuery = !normalizedQuery || normalizeText(`${item.name} ${item.now?.title ?? ""}`).includes(normalizedQuery);
-    return inGroup && matchesQuery;
+    return inGroup && matchesQuery && (parental.unlocked || !isAdultGroup(item.group));
   });
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const safePage = Math.min(page, pageCount - 1);
-  const visibleItems = filtered.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
+  const posters = useMemo(() => filtered.map((item) => ({ ...item, title: item.name })), [filtered]);
   const labels = {
     LIVE: { title: "TV ao vivo", subtitle: "Canais e programação" },
     MOVIE: { title: "Filmes", subtitle: "Escolha uma categoria" },
@@ -890,13 +931,13 @@ function CatalogScreen({
           group={group}
           query={query}
           placeholder={kind === "LIVE" ? "Buscar canal" : "Buscar filme"}
-          onQuery={(value) => { setQuery(value); onPage(0); }}
+          onQuery={setQuery}
           onGroup={onGroup}
         />
         <div className="vod-content">
       <div className="catalog-heading">
-        <div><h1>{labels[kind].title}</h1><p>{labels[kind].subtitle}</p></div>
-        <span>{formatCount(filtered.length)} itens carregados</span>
+        <div><h1>{group === "Todos" ? labels[kind].title : group}</h1><p>{labels[kind].subtitle}</p></div>
+        <span>{formatCount(filtered.length)} {kind === "MOVIE" ? "filmes" : "canais"}</span>
       </div>
           {kind === "LIVE" ? (
             <div className="layout-switch" aria-label="Visualização">
@@ -913,31 +954,11 @@ function CatalogScreen({
           action={<button data-focusable className="tv-primary" onClick={() => void onRefresh()}>Tentar novamente</button>}
         />
       ) : null}
-      {!loading && catalog && !visibleItems.length ? <CatalogMessage icon={<Layers3 />} title="Nenhum item nesta categoria" /> : null}
-      {visibleItems.length && (kind !== "LIVE" || layout === "GRID") ? (
-        <div className={`catalog-grid catalog-${kind.toLowerCase()}`}>
-          {visibleItems.map((item, index) => (
-            <button
-              key={item.id}
-              data-focusable
-              data-autofocus={index === 0 ? "" : undefined}
-              className="content-card"
-              onClick={() => onPlay(item)}
-              title={item.name}
-            >
-              <span className="content-art">
-                <span className="content-fallback">{item.name.slice(0, 2).toUpperCase()}</span>
-                {item.logo ? <img width="400" height="600" src={item.logo} alt="" loading="lazy" onError={(event) => { event.currentTarget.style.display = "none"; }} /> : null}
-                <span className="content-play"><Play fill="currentColor" /></span>
-              </span>
-              <strong>{item.name}</strong>
-              <small>{item.now?.title ?? cleanGroupLabel(item.group)}</small>
-            </button>
-          ))}
-        </div>
+      {!loading && catalog && !filtered.length ? <CatalogMessage icon={<Layers3 />} title="Nenhum item nesta categoria" /> : null}
+      {filtered.length && (kind !== "LIVE" || layout === "GRID") ? (
+        <VirtualPosterGrid key={`${catalog?.source.id}:${group}:${query}`} items={posters} onSelect={onPlay} />
       ) : null}
-      {visibleItems.length && kind === "LIVE" && layout === "GUIDE" ? <LiveGuide items={visibleItems} onPlay={onPlay} /> : null}
-      <Pagination page={safePage} pageCount={pageCount} onPage={onPage} />
+      {filtered.length && kind === "LIVE" && layout === "GUIDE" ? <LiveGuide items={filtered} onPlay={onPlay} /> : null}
         </div>
       </div>
     </section>
@@ -978,9 +999,7 @@ function SeriesScreen({
   loading,
   error,
   group,
-  page,
   onGroup,
-  onPage,
   onBack,
   onSelect,
   onRefresh,
@@ -989,27 +1008,26 @@ function SeriesScreen({
   loading: boolean;
   error: string;
   group: string;
-  page: number;
   onGroup: (group: string) => void;
-  onPage: (page: number) => void;
   onBack: () => void;
   onSelect: (series: SeriesCollection) => void;
   onRefresh: () => Promise<void>;
 }) {
   const [query, setQuery] = useState("");
-  const collections = useMemo(() => buildSeriesCollections(catalog?.items ?? []), [catalog]);
+  const parental = useParentalControl();
+  const collections = useMemo(() => catalog?.seriesCollections
+    ? orderByGroup(catalog.seriesCollections.map((series) => ({ ...series, group: cleanGroupLabel(series.group), episodes: [] })), "SERIES", (series) => series.group)
+    : buildSeriesCollections(catalog?.items ?? []), [catalog]);
   const groups = useMemo(
     () => ["Todos", ...orderGroups("SERIES", collections.map((series) => series.group))],
     [collections],
   );
   const normalizedQuery = normalizeText(query);
   const filtered = collections.filter((series) => (
+    (parental.unlocked || !isAdultGroup(series.group)) &&
     (group === "Todos" || series.group === group) &&
     (!normalizedQuery || normalizeText(series.title).includes(normalizedQuery))
   ));
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const safePage = Math.min(page, pageCount - 1);
-  const visibleSeries = filtered.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
 
   return (
     <section className="catalog-screen vod-screen">
@@ -1021,43 +1039,21 @@ function SeriesScreen({
           group={group}
           query={query}
           placeholder={"Buscar série"}
-          onQuery={(value) => { setQuery(value); onPage(0); }}
+          onQuery={setQuery}
           onGroup={onGroup}
         />
         <div className="vod-content">
       <div className="catalog-heading">
-        <div><h1>Séries</h1><p>Escolha uma série para ver temporadas e episódios</p></div>
-        <span>{formatCount(filtered.length)} séries organizadas</span>
+        <div><h1>{group === "Todos" ? "Séries" : group}</h1></div>
+        <span>{formatCount(filtered.length)} séries</span>
       </div>
 
       {loading && !catalog ? <CatalogMessage icon={<LoaderCircle className="spin" />} title="Carregando conteúdo" /> : null}
       {!loading && error && !catalog ? (
         <CatalogMessage icon={<RefreshCw />} title={error} action={<button data-focusable className="tv-primary" onClick={() => void onRefresh()}>Tentar novamente</button>} />
       ) : null}
-      {!loading && catalog && !visibleSeries.length ? <CatalogMessage icon={<Layers3 />} title="Nenhuma série nesta categoria" /> : null}
-      {visibleSeries.length ? (
-        <div className="catalog-grid catalog-series">
-          {visibleSeries.map((series, index) => (
-            <button
-              key={series.id}
-              data-focusable
-              data-autofocus={index === 0 ? "" : undefined}
-              className="content-card"
-              onClick={() => onSelect(series)}
-              title={series.title}
-            >
-              <span className="content-art">
-                <span className="content-fallback">{series.title.slice(0, 2).toUpperCase()}</span>
-                {series.logo ? <img width="400" height="600" src={series.logo} alt="" loading="lazy" onError={(event) => { event.currentTarget.style.display = "none"; }} /> : null}
-                <span className="content-play"><ChevronRight /></span>
-              </span>
-              <strong>{series.title}</strong>
-              <small>{formatCount(series.episodes.length)} episódios carregados</small>
-            </button>
-          ))}
-        </div>
-      ) : null}
-      <Pagination page={safePage} pageCount={pageCount} onPage={onPage} />
+      {!loading && catalog && !filtered.length ? <CatalogMessage icon={<Layers3 />} title="Nenhuma série nesta categoria" /> : null}
+      {filtered.length ? <VirtualPosterGrid key={`${catalog?.source.id}:${group}:${query}`} items={filtered} onSelect={onSelect} /> : null}
         </div>
       </div>
     </section>
@@ -1066,19 +1062,45 @@ function SeriesScreen({
 
 function SeriesDetails({
   series,
+  catalog,
+  onAuthenticationFailure,
   onBack,
   onPlay,
 }: {
   series: SeriesCollection;
+  catalog: DeviceCatalog | null;
+  onAuthenticationFailure: () => void;
   onBack: () => void;
   onPlay: (item: CatalogItem) => void;
 }) {
+  const [allEpisodes, setAllEpisodes] = useState(series.episodes);
+  const [loading, setLoading] = useState(!series.episodes.length);
+  const [error, setError] = useState("");
+  const [attempt, setAttempt] = useState(0);
+  const [season, setSeason] = useState(series.episodes[0]?.series?.season ?? 0);
+  useEffect(() => {
+    if (series.episodes.length) return;
+    const controller = new AbortController();
+    const token = localStorage.getItem(TOKEN_KEY) ?? "";
+    const operation = catalog?.nativeCatalogId && catalog.nativeRevision
+      ? loadNativeEpisodes(catalog.nativeCatalogId, catalog.nativeRevision, catalog.source.id, series.id, token, controller.signal)
+      : request<CatalogItem[]>(`v1/device/catalog/series/${encodeURIComponent(series.id)}`, { signal: controller.signal }, token, undefined, 115_000);
+    void operation
+      .then((items) => { if (!controller.signal.aborted) { setAllEpisodes(items); setSeason(items[0]?.series?.season ?? 0); } })
+      .catch((caught: unknown) => { if (!controller.signal.aborted) { if (isAuthenticationFailure(caught)) onAuthenticationFailure(); else setError(caught instanceof Error ? caught.message : "Não foi possível carregar os episódios."); } })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [series, attempt, catalog, onAuthenticationFailure]);
   const seasons = useMemo(
-    () => Array.from(new Set(series.episodes.map((item) => item.series?.season ?? 0))).sort((a, b) => a - b),
-    [series],
+    () => Array.from(new Set(allEpisodes.map((item) => item.series?.season ?? 0))).sort((a, b) => a - b),
+    [allEpisodes],
   );
-  const [season, setSeason] = useState(seasons[0] ?? 0);
-  const episodes = series.episodes
+  useEffect(() => {
+    if (loading) return;
+    const target = document.querySelector<HTMLElement>(".series-details [data-autofocus]") ?? document.querySelector<HTMLElement>(".series-details [data-focusable]");
+    target?.focus();
+  }, [loading, error]);
+  const episodes = allEpisodes
     .filter((item) => (item.series?.season ?? 0) === season)
     .sort((a, b) => (a.series?.episode ?? 0) - (b.series?.episode ?? 0) || a.name.localeCompare(b.name, "pt-BR"));
 
@@ -1093,9 +1115,12 @@ function SeriesDetails({
         <div>
           <span>{series.group}</span>
           <h1>{series.title}</h1>
-          <p>{series.episodes.length} episódios carregados · {seasons.length} {seasons.length === 1 ? "temporada" : "temporadas"}</p>
+          <p>{formatCount(series.episodeCount)} episódios{seasons.length ? ` · ${seasons.length} ${seasons.length === 1 ? "temporada" : "temporadas"}` : ""}</p>
         </div>
       </div>
+      {loading ? <CatalogMessage icon={<LoaderCircle className="spin" />} title="Carregando episódios" /> : null}
+      {!loading && error ? <CatalogMessage icon={<RefreshCw />} title={error} action={<button data-focusable className="tv-primary" onClick={() => { setLoading(true); setError(""); setAttempt((value) => value + 1); }}>Tentar novamente</button>} /> : null}
+      {!loading && !error && !allEpisodes.length ? <CatalogMessage icon={<Layers3 />} title="Nenhum episódio disponível" /> : null}
       <nav className="group-tabs season-tabs" aria-label="Temporadas">
         {seasons.map((seasonNumber, index) => (
           <button
@@ -1125,17 +1150,6 @@ function SeriesDetails({
   );
 }
 
-function Pagination({ page, pageCount, onPage }: { page: number; pageCount: number; onPage: (page: number) => void }) {
-  if (pageCount <= 1) return null;
-  return (
-    <div className="pagination">
-      <button data-focusable aria-label="Página anterior" disabled={page === 0} onClick={() => onPage(page - 1)}><ChevronLeft /></button>
-      <span>{page + 1} / {pageCount}</span>
-      <button data-focusable aria-label="Próxima página" disabled={page + 1 >= pageCount} onClick={() => onPage(page + 1)}><ChevronRight /></button>
-    </div>
-  );
-}
-
 function buildSeriesCollections(items: CatalogItem[]): SeriesCollection[] {
   const collections = new Map<string, SeriesCollection>();
   for (const item of items) {
@@ -1146,9 +1160,10 @@ function buildSeriesCollections(items: CatalogItem[]): SeriesCollection[] {
     const current = collections.get(key);
     if (current) {
       current.episodes.push(item);
+      current.episodeCount += 1;
       if (!current.logo && item.logo) current.logo = item.logo;
     } else {
-      collections.set(key, { id: item.id, title, group, logo: item.logo, episodes: [item] });
+      collections.set(key, { id: item.id, title, group, logo: item.logo, episodes: [item], episodeCount: 1 });
     }
   }
   return orderByGroup(Array.from(collections.values()), "SERIES", (series) => series.group);
@@ -1177,7 +1192,8 @@ function SettingsScreen({
   onRefresh: () => Promise<void>;
   onDisconnect: () => void;
 }) {
-  const [section, setSection] = useState<"ACCOUNT" | "DEVICE">("ACCOUNT");
+  const [section, setSection] = useState<"ACCOUNT" | "DEVICE" | "PARENTAL">("ACCOUNT");
+  const parental = useParentalControl();
   return (
     <section className="settings-screen">
       <PlayerHeader sourceName={configuration?.playlist?.name ?? "LC PLAY"} onBack={onBack} />
@@ -1186,18 +1202,24 @@ function SettingsScreen({
         <nav className="settings-nav" aria-label="Configurações">
           <button data-focusable data-autofocus className={section === "ACCOUNT" ? "active" : ""} onClick={() => setSection("ACCOUNT")}><Radio />Conta e conteúdo</button>
           <button data-focusable className={section === "DEVICE" ? "active" : ""} onClick={() => setSection("DEVICE")}><MonitorPlay />Dispositivo</button>
+          <button data-focusable className={section === "PARENTAL" ? "active" : ""} onClick={() => setSection("PARENTAL")}><LockKeyhole />Controle parental</button>
           <button data-focusable onClick={() => void onRefresh()} disabled={loading}>{loading ? <LoaderCircle className="spin" /> : <RefreshCw />}Atualizar conteúdo</button>
           {!demo ? <button data-focusable className="danger-button" onClick={onDisconnect}><LogOut />Desconectar aparelho</button> : null}
         </nav>
         <div className="settings-information">
-          <h2>{section === "ACCOUNT" ? "Informações da conta" : "Informações do dispositivo"}</h2>
+          <h2>{section === "PARENTAL" ? "Controle parental" : section === "ACCOUNT" ? "Informações da conta" : "Informações do dispositivo"}</h2>
+          {section === "PARENTAL" ? <div className="parental-settings">
+            <p>Conteúdo adulto: {parental.unlocked ? "liberado nesta sessão" : "bloqueado"}</p>
+            <button data-focusable className="tv-primary" onClick={parental.changePin}><KeyRound />Alterar PIN</button>
+            <button data-focusable className="tv-ghost" disabled={!parental.unlocked} onClick={parental.lock}><LockKeyhole />Bloquear agora</button>
+          </div> : <>
           <dl>
             {section === "ACCOUNT" ? <>
               <div><dt>Status</dt><dd>{demo ? "Demonstração" : configuration?.device.status === "ACTIVE" ? "Ativo" : "Inativo"}</dd></div>
               <div><dt>Fonte</dt><dd>{configuration?.playlist?.name ?? catalog?.source.name ?? "Não vinculada"}</dd></div>
               <div><dt><CalendarDays />Validade</dt><dd>{formatDate(configuration?.device.expiresAt ?? null)}</dd></div>
               <div><dt>Conteúdos</dt><dd>{formatCount(catalog?.summary.total ?? 0)}</dd></div>
-              <div><dt><Clock3 />EPG</dt><dd>{catalog?.epg.status === "AVAILABLE" ? `${formatCount(catalog.epg.programmes)} programas` : "Indisponível"}</dd></div>
+              <div><dt><Clock3 />EPG</dt><dd>{catalog?.epg.mode === "CHANNEL" ? "Consulta por canal" : catalog?.epg.status === "AVAILABLE" ? `${formatCount(catalog.epg.programmes)} programas` : "Indisponível"}</dd></div>
             </> : <>
               <div><dt>Dispositivo</dt><dd>{configuration?.device.label ?? "Modo demonstração"}</dd></div>
               <div><dt>ID do dispositivo</dt><dd>{configuration?.device.id ?? "Prévia local"}</dd></div>
@@ -1205,6 +1227,7 @@ function SettingsScreen({
               <div><dt>Versão</dt><dd>{APP_VERSION}</dd></div>
             </>}
           </dl>
+          </>}
           {error ? <p className="settings-error" role="alert">{error}</p> : null}
         </div>
       </div>

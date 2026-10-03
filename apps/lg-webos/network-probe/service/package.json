@@ -1,0 +1,6 @@
+{
+  "name": "com.lcplay.networktest.service",
+  "version": "0.1.0",
+  "private": true,
+  "main": "service.js"
+}

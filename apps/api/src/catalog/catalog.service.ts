@@ -2,24 +2,21 @@ import {
   BadGatewayException,
   BadRequestException,
   Injectable,
+  NotFoundException,
   ServiceUnavailableException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import type { Playlist } from "@prisma/client";
-import type { CatalogItem, CatalogKind, DeviceCatalog, SourceDiagnostic, SourceDiagnosticCheck } from "@lc-play/contracts";
+import type { CatalogItem, CatalogKind, DeviceCatalog, DeviceEpgSource, DeviceMediaSource, SourceDiagnostic, SourceDiagnosticCheck } from "@lc-play/contracts";
 import { decryptSecret, sha256 } from "../common/crypto";
 import type { DevicePrincipal } from "../devices/device-token.guard";
 import { PrismaService } from "../prisma/prisma.service";
 import { attachEpg, parseM3uCatalog, parseXmltv } from "./catalog.parsers";
-import { selectCatalogKind } from "./catalog.selection";
+import { catalogSeriesIndex, selectCatalogKind } from "./catalog.selection";
 import { CatalogCache } from "./catalog.cache";
 
 const MAX_CATALOG_BYTES = 150 * 1024 * 1024;
 const MAX_EPG_BYTES = 80 * 1024 * 1024;
-const MAX_DEVICE_ITEMS = 8_500;
-const ITEM_LIMITS = { LIVE: 2_000, MOVIE: 1_500, SERIES: 5_000 } as const;
-const MAX_SERIES_COLLECTIONS = 750;
-const MAX_RETAINED_EPISODES_PER_SERIES = 8;
 
 type M3uLoadResult = {
   items: CatalogItem[];
@@ -38,7 +35,44 @@ export class CatalogService {
     private readonly config: ConfigService,
   ) {}
 
-  async forDevice(device: DevicePrincipal, kind?: CatalogKind): Promise<DeviceCatalog> {
+  async forDevice(device: DevicePrincipal, kind?: CatalogKind, compact = false): Promise<DeviceCatalog> {
+    return selectCatalogKind(await this.deviceCatalog(device), kind, compact);
+  }
+
+  async seriesForDevice(device: DevicePrincipal, seriesId: string): Promise<CatalogItem[]> {
+    const series = catalogSeriesIndex(await this.deviceCatalog(device)).get(seriesId);
+    if (!series) throw new NotFoundException("Série não encontrada na fonte deste dispositivo.");
+    return series.episodes;
+  }
+
+  epgSourceForDevice(device: DevicePrincipal): DeviceEpgSource {
+    const playlist = device.playlist;
+    if (!playlist) throw new BadRequestException("Nenhuma fonte esta vinculada a este dispositivo.");
+    if (playlist.status === "PAUSED") throw new ServiceUnavailableException("A fonte vinculada esta pausada.");
+    const source = new URL(decryptSecret(playlist.sourceUrlEncrypted, this.config.getOrThrow<string>("DATA_ENCRYPTION_KEY")));
+    let providerApiUrl: string | null = null;
+    if (/^https?:$/.test(source.protocol) && source.pathname.endsWith("/get.php") && source.searchParams.get("username") && source.searchParams.get("password")) {
+      const api = new URL("player_api.php", source);
+      api.search = "";
+      for (const name of ["username", "password"]) api.searchParams.set(name, source.searchParams.get(name)!);
+      providerApiUrl = api.href;
+    }
+    return {
+      sourceId: playlist.id,
+      revision: sha256(`${playlist.sourceUrlEncrypted}:${playlist.epgUrlEncrypted ?? ""}`),
+      providerApiUrl,
+    };
+  }
+
+  mediaSourceForDevice(device: DevicePrincipal): DeviceMediaSource {
+    const descriptor = this.epgSourceForDevice(device);
+    const playlist = device.playlist!;
+    if (playlist.type !== "M3U") throw new BadRequestException("Esta versão aceita somente fontes M3U.");
+    const key = this.config.getOrThrow<string>("DATA_ENCRYPTION_KEY");
+    return { ...descriptor, source: { id: playlist.id, name: playlist.name, type: playlist.type }, sourceUrl: decryptSecret(playlist.sourceUrlEncrypted, key), epgUrl: playlist.epgUrlEncrypted ? decryptSecret(playlist.epgUrlEncrypted, key) : null };
+  }
+
+  private async deviceCatalog(device: DevicePrincipal): Promise<DeviceCatalog> {
     const playlist = device.playlist;
     if (!playlist) throw new BadRequestException("Nenhuma fonte está vinculada a este dispositivo.");
     if (playlist.status === "PAUSED") throw new ServiceUnavailableException("A fonte vinculada está pausada.");
@@ -54,8 +88,7 @@ export class CatalogService {
       playlist.usernameEncrypted ?? "",
       playlist.passwordEncrypted ?? "",
     ].join(":"));
-    const catalog = await this.cache.get(cacheKey, () => this.loadAndPersist(playlist));
-    return selectCatalogKind(catalog, kind);
+    return this.cache.get(cacheKey, () => this.loadAndPersist(playlist));
   }
 
   diagnose(playlist: Playlist): Promise<SourceDiagnostic> {
@@ -128,7 +161,7 @@ export class CatalogService {
     const parsed = await this.fetchM3u(sourceUrl, playlist.id);
     if (!parsed.items.length) throw new BadGatewayException("A lista M3U não contém itens válidos.");
 
-    let items: CatalogItem[] = parsed.items.map((item) => ({ ...item, now: null, next: null }));
+    let items = parsed.items;
     let epgStatus: DeviceCatalog["epg"]["status"] = "UNAVAILABLE";
     let programmeCount = 0;
     const configuredEpg = playlist.epgUrlEncrypted
@@ -139,7 +172,9 @@ export class CatalogService {
       try {
         const epgContent = await this.fetchText(configuredEpg, MAX_EPG_BYTES, "Não foi possível baixar o EPG.");
         const guide = parseXmltv(epgContent);
-        items = attachEpg(parsed.items, guide);
+        const liveItems = attachEpg(parsed.items.filter((item) => item.kind === "LIVE"), guide);
+        let liveIndex = 0;
+        items = parsed.items.map((item) => item.kind === "LIVE" ? liveItems[liveIndex++]! : item);
         programmeCount = Array.from(guide.values()).reduce(
           (total, programme) => total + Number(Boolean(programme.now)) + Number(Boolean(programme.next)),
           0,
@@ -150,15 +185,17 @@ export class CatalogService {
       }
     }
 
-    return {
+    const catalog: DeviceCatalog = {
       source: { id: playlist.id, name: playlist.name, type: playlist.type },
       summary: parsed.summary,
       groups: Array.from(parsed.groups, ([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count),
-      items: items.slice(0, MAX_DEVICE_ITEMS),
-      truncated: parsed.summary.total > items.length,
+      items,
+      truncated: false,
       refreshedAt: new Date().toISOString(),
       epg: { status: epgStatus, programmes: programmeCount },
     };
+    catalog.summary.seriesTitles = catalogSeriesIndex(catalog).size;
+    return catalog;
   }
 
   private async fetchM3u(
@@ -184,9 +221,7 @@ export class CatalogService {
 
       const decoder = new TextDecoder();
       const items: CatalogItem[] = [];
-      const seriesBuckets = new Map<string, CatalogItem[]>();
       const retainedIds = new Set<string>();
-      const retained = { LIVE: 0, MOVIE: 0, SERIES: 0 };
       const summary = { total: 0, live: 0, movies: 0, series: 0 };
       const groups = new Map<string, number>();
       let embeddedEpgUrl: string | null = null;
@@ -201,27 +236,13 @@ export class CatalogService {
         const parsed = parseM3uCatalog(`${header}\n${batch.join("\n")}`, playlistId);
         embeddedEpgUrl ??= parsed.embeddedEpgUrl;
         for (const item of parsed.items) {
+          if (retainedIds.has(item.id)) continue;
+          retainedIds.add(item.id);
           summary.total += 1;
           if (item.kind === "LIVE") summary.live += 1;
           if (item.kind === "MOVIE") summary.movies += 1;
           if (item.kind === "SERIES") summary.series += 1;
           groups.set(item.group, (groups.get(item.group) ?? 0) + 1);
-          if (item.kind === "SERIES") {
-            const seriesKey = `${item.group}:${item.series?.title ?? item.name}`.toLocaleLowerCase("pt-BR");
-            let bucket = seriesBuckets.get(seriesKey);
-            if (!bucket) {
-              if (seriesBuckets.size >= MAX_SERIES_COLLECTIONS) continue;
-              bucket = [];
-              seriesBuckets.set(seriesKey, bucket);
-            }
-            if (bucket.length < MAX_RETAINED_EPISODES_PER_SERIES) {
-              bucket.push({ ...item, now: null, next: null });
-            }
-            continue;
-          }
-          if (retained[item.kind] >= ITEM_LIMITS[item.kind] || retainedIds.has(item.id)) continue;
-          retainedIds.add(item.id);
-          retained[item.kind] += 1;
           items.push({ ...item, now: null, next: null });
         }
         batch = [];
@@ -252,16 +273,6 @@ export class CatalogService {
       if (carry) consumeLine(carry);
       flush();
 
-      const series = Array.from(seriesBuckets.values());
-      for (let episodeIndex = 0; episodeIndex < MAX_RETAINED_EPISODES_PER_SERIES; episodeIndex += 1) {
-        for (const bucket of series) {
-          const item = bucket[episodeIndex];
-          if (!item || retained.SERIES >= ITEM_LIMITS.SERIES || retainedIds.has(item.id)) continue;
-          retainedIds.add(item.id);
-          retained.SERIES += 1;
-          items.push(item);
-        }
-      }
       return { items, embeddedEpgUrl, summary, groups };
     } catch (error) {
       if (error instanceof Error && error.name === "AbortError") {

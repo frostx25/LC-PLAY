@@ -1,79 +1,9 @@
-import type { CatalogItem, CatalogKind, EpgProgramme } from "@lc-play/contracts";
+import type { CatalogItem, EpgProgramme } from "@lc-play/contracts";
 import { XMLParser } from "fast-xml-parser";
-import playlistParser from "iptv-playlist-parser";
-import { sha256 } from "../common/crypto";
+export { parseM3uCatalog, parseSeriesEpisode } from "./m3u.parsers";
 
 type CatalogSeed = Omit<CatalogItem, "now" | "next">;
 type ProgrammePair = { now: EpgProgramme | null; next: EpgProgramme | null };
-
-const moviePattern = /\b(filmes?|movies?|cinema|vod)\b/i;
-const seriesPattern = /\b(s[eé]ries?|series?|shows?)\b/i;
-
-function classify(group: string, url: string): CatalogKind {
-  const normalizedGroup = group.trim();
-  if (/^(canais?|tv)\s*(?:[|/:\-]|$)/i.test(normalizedGroup) || /\/live\//i.test(url)) return "LIVE";
-  if (/^s[eé]ries?\s*(?:[|/:\-]|$)/i.test(normalizedGroup) || /\/series\//i.test(url)) return "SERIES";
-  if (/^(filmes?|movies?)\s*(?:[|/:\-]|$)/i.test(normalizedGroup) || /\/movie\//i.test(url)) return "MOVIE";
-  const value = `${normalizedGroup} ${url}`;
-  if (seriesPattern.test(value)) return "SERIES";
-  if (moviePattern.test(value) || /\.(mp4|mkv|avi)(?:\?|$)/i.test(url)) {
-    return "MOVIE";
-  }
-  return "LIVE";
-}
-
-export function parseSeriesEpisode(name: string): CatalogItem["series"] {
-  const patterns = [
-    /^(.*?)[\s._-]+S(\d{1,3})[\s._-]*E(\d{1,4})(?:\b|$)/i,
-    /^(.*?)[\s._-]+T(\d{1,3})[\s._-]*E(\d{1,4})(?:\b|$)/i,
-    /^(.*?)[\s._-]+(\d{1,3})x(\d{1,4})(?:\b|$)/i,
-  ];
-  for (const pattern of patterns) {
-    const match = name.match(pattern);
-    if (!match) continue;
-    const title = match[1]?.replace(/[|._-]+$/g, "").trim();
-    const season = Number(match[2]);
-    const episode = Number(match[3]);
-    if (title && Number.isInteger(season) && Number.isInteger(episode)) return { title, season, episode };
-  }
-  return null;
-}
-
-function clean(value: string | undefined, fallback = ""): string {
-  return value?.trim() || fallback;
-}
-
-export function parseM3uCatalog(content: string, playlistId: string): {
-  items: CatalogSeed[];
-  embeddedEpgUrl: string | null;
-} {
-  const parsed = playlistParser.parse(content);
-  const seen = new Set<string>();
-  const items: CatalogSeed[] = [];
-
-  for (const entry of parsed.items) {
-    const streamUrl = clean(entry.url);
-    if (!/^https?:\/\//i.test(streamUrl) || seen.has(streamUrl)) continue;
-    seen.add(streamUrl);
-    const name = clean(entry.name, clean(entry.tvg?.name, "Conteúdo sem título"));
-    const group = clean(entry.group?.title, "Outros");
-    const kind = classify(group, streamUrl);
-    items.push({
-      id: sha256(`${playlistId}:${streamUrl}`).slice(0, 24),
-      name,
-      kind,
-      group,
-      logo: clean(entry.tvg?.logo) || null,
-      streamUrl,
-      tvgId: clean(entry.tvg?.id) || null,
-      series: kind === "SERIES" ? parseSeriesEpisode(name) : null,
-    });
-  }
-
-  const epgValue = parsed.header?.attrs?.["x-tvg-url"] ?? parsed.header?.attrs?.["url-tvg"];
-  const embeddedEpgUrl = epgValue?.split(",").map((value) => value.trim()).find(Boolean) ?? null;
-  return { items, embeddedEpgUrl };
-}
 
 function xmlText(value: unknown): string | null {
   if (typeof value === "string" || typeof value === "number") return String(value).trim() || null;

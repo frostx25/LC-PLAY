@@ -1,0 +1,5 @@
+{
+  "id": "com.lcplay.networktest.service",
+  "description": "Temporary LC PLAY network diagnostics",
+  "services": [{ "name": "com.lcplay.networktest.service", "description": "M3U and EPG network diagnostics" }]
+}

@@ -1,0 +1,24 @@
+[Unit]
+Description=LC PLAY Cloudflare Tunnel
+After=network-online.target nginx.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+DynamicUser=true
+LoadCredential=tunnel.json:/etc/lcplay-cloudflared/tunnel.json
+ExecStart=/usr/local/bin/cloudflared --no-autoupdate tunnel --config /etc/lcplay-cloudflared/config.yml run
+Restart=always
+RestartSec=5s
+TimeoutStopSec=30s
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

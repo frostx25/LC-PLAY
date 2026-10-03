@@ -1,13 +1,19 @@
 # Pendências antes da submissão
 
-Revisão iniciada em 01/10/2026 e atualizada com testes do pacote local na C1 em 02/10/2026.
+Revisão iniciada em 01/10/2026 e atualizada com testes do pacote de produção na C1 em 03/10/2026.
+
+## Concluido em producao
+
+- API publica HTTPS em `https://api-lcplay.thxtech.site/api` e painel em `https://lcplay.thxtech.site`, usando Cloudflare Tunnel dedicado na VM. Banco privado, segredos fora do Git e backups iniciais protegidos. Backups externos automatizados e alertas operacionais ainda precisam ser configurados.
+- Pacote de producao instalado na C1 e ativacao preservada. Catalogo completo carregado no aparelho por JavaScript Service nativo, sem depender do IP do computador ou do download da lista pelo backend.
+- EPG real, audio, tela cheia sem recriar o video, filmes, series e episodios validados contra a API publica.
+- Bloqueio adulto validado nas tres secoes: PIN incorreto recusado, `0000` aceito e bloqueio reaplicado. Esses testes nao substituem uma revisao das politicas de conteudo da loja.
 
 ## Bloqueios
 
-1. **API pública e HTTPS:** `VITE_API_URL` é incorporada no build; o fallback atual é `http://localhost:4100`. O pacote de submissão não pode depender do IP deste computador. Preparar ambiente público, origem webOS restrita, banco privado, segredos próprios, backup e monitoramento. Implantação depende de autorização.
-2. **Acesso de avaliadores:** códigos são temporários e de uso único, com validade máxima de 24 horas. A fila de avaliação pode ultrapassar isso. Definir um processo efetivamente utilizável por uma TV LG externa e documentá-lo; não incluir bypass ou conta administrativa no pacote.
-3. **Privacidade e termos:** rascunhos não estão hospedados, nem há acesso a eles nas configurações do app. Definir operadores, país, bases legais, retenção e fluxo de direitos antes de publicar.
-4. **Cadastro e declaração de conteúdo:** abrir Seller Lounge e confirmar requisitos aplicáveis ao tipo de player. A fonte usada na avaliação deve ser própria ou licenciada; explicar o cadastro administrativo real. A ausência de listas pré-carregadas não garante aprovação.
+1. **Acesso de avaliadores:** códigos são temporários e de uso único, com validade máxima de 24 horas. A fila de avaliação pode ultrapassar isso. Definir um processo efetivamente utilizável por uma TV LG externa e documentá-lo; não incluir bypass ou conta administrativa no pacote.
+2. **Privacidade e termos:** rascunhos não estão hospedados, nem há acesso a eles nas configurações do app. Definir operadores, país, bases legais, retenção e fluxo de direitos antes de publicar.
+3. **Cadastro e declaração de conteúdo:** abrir Seller Lounge e confirmar requisitos aplicáveis ao tipo de player. A fonte usada na avaliação deve ser própria ou licenciada; explicar o cadastro administrativo real. A ausência de listas pré-carregadas não garante aprovação.
 
 ## Revisão técnica
 
@@ -19,9 +25,9 @@ Revisão iniciada em 01/10/2026 e atualizada com testes do pacote local na C1 em
 - **Back, Home e retomada:** conferir comportamento na tela inicial, suspensão, relaunch, áudio e retomada em cada plataforma declarada. Não tratar testes de navegador como QA físico.
 - **Splash:** candidato 1920 × 1080 integrado localmente ao manifesto com `iconColor`, resolução e descrição. Validar a abertura do pacote final na TV antes da submissão.
 - **Versão:** padronizada em `0.1.0` no manifesto, pacote LG e interface, com teste automático contra divergência. Incrementar antes de cada submissão posterior.
-- **Proteção por PIN:** há campos no backend, mas não anunciar controle parental funcional sem validar bloqueio efetivo no player.
+- **Proteção por PIN:** bloqueio efetivo validado na C1 com o pacote de producao; revisar persistencia do PIN, reset e comportamento em outros modelos declarados.
 - **M3U versus Xtream:** o painel cadastra Xtream, porém o catálogo LG rejeita reprodução Xtream. Textos desta versão anunciam somente M3U.
-- **Catálogos e sessões longas:** medir memória, CPU, primeira importação, trocas de seção e reprodução contínua. A fixture curta não prova escalabilidade nem estabilidade prolongada.
+- **Catálogos e sessões longas:** importacao real na C1 validada com 305.954 itens (aproximadamente 66 segundos e 243 MiB de pico RSS do servico). Navegacao, episodios e reproducao passaram; ainda medir CPU e estabilidade por varias horas, suspensao/retomada e outros modelos. Esse teste nao confirma estabilidade prolongada.
 - **Licenças e marca:** conferir avisos das dependências distribuídas, fontes, marca LC PLAY e assets; não reutilizar marca, posters ou imagens de outro player.
 
 ## Operação e revisão

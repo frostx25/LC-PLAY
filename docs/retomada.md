@@ -1,6 +1,22 @@
 # Retomada do LC PLAY
 
-Estado iniciado em 30/09/2026 e atualizado em 01/10/2026. Repositório: https://github.com/frostx25/LC-PLAY.git.
+Estado iniciado em 30/09/2026 e atualizado em 03/10/2026. Repositório: https://github.com/frostx25/LC-PLAY.git.
+
+## Atualizacao de 03/10/2026
+
+- Checkout atual: `C:\Users\leeoc\Desktop\PROJETOS\tv-player-platform`. As secoes anteriores abaixo sao historicas; limites de catalogo e pendencias da LG nelas foram superados pelos testes recentes.
+- Backend e painel publicados, por solicitacao do proprietario, na VM `177.104.178.30`, SSH `9922`, em `/opt/lc-play`. Compose dedicado `lc-play-production`, banco independente do DashboardConecta e portas apenas em loopback.
+- Painel: `https://lcplay.thxtech.site`. API: `https://api-lcplay.thxtech.site/api`. Conta do painel configurada conforme solicitado; senha privada fora do Git.
+- Publicacao via Cloudflare Tunnel `lc-play-vm30`, com servico systemd `lcplay-cloudflared.service`. O HTTP/HTTPS do IP publico chega a outro proxy, por isso nao usar os antigos registros A para esses dois subdominios. `thxtech.site` e `www` continuam na Oracle, sem alteracoes.
+- Banco local copiado uma unica vez ao PostgreSQL exclusivo de producao: uma C1 e duas fontes. Chaves de criptografia/identificacao mantidas; ativacao existente validada na TV, sem novo pareamento.
+- Pacote de producao instalado na LG OLED C1 `192.168.15.5`, mesmo ID `com.lcplay.tv`, apontando a API HTTPS publica. O pacote local permanece separado. Gerar com `pnpm --filter @lc-play/lg-webos package:tv:production`.
+- A TV baixa e processa M3U e EPG por JavaScript Service nativo. Teste real confirmou 305.954 itens: 2.777 canais, 21.484 filmes, 6.919 titulos de series e 281.693 episodios, sem chamadas ao catalogo do backend. Nova importacao levou aproximadamente 66 segundos.
+- EPG XMLTV e exibicao de agora/a seguir validados. Video 1280 x 720 com audio, sem erro; tela cheia preserva o mesmo elemento de video e nao sobrepoe EPG.
+- Conteudo adulto protegido nas tres secoes: PIN incorreto recusado, `0000` aceito e bloqueio reaplicado. Fixtures dos testes removidas ao recarregar; TV reaberta no app real ao terminar.
+- Painel HTTPS validado em desktop e celular, incluindo login/logout, cookie Secure/HttpOnly, todas as paginas, cadastros preservados, endpoints protegidos e CORS webOS.
+- Backups iniciais e configuracao privada protegidos na VM; credenciais temporarias de autorizacao e uploads removidos. Operacao, backups e novos deploys documentados em `deploy/README.md`.
+- Codigo da implantacao e das validacoes incluido neste checkpoint do Git, por solicitacao do proprietario. Credenciais, bancos, relatorios privados e pacotes gerados continuam fora do repositorio. Novos deploys dependem de solicitacao.
+- Proximos passos: implementar/testar o Roku e concluir a submissao do app LG. O backend publico deixou de ser pendencia; validar os demais itens da publicacao em `docs/publicacao-lg/pendencias.md`.
 
 ## Atualização de 01/10/2026
 

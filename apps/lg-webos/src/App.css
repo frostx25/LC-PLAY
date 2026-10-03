@@ -312,6 +312,23 @@
   font-size: 15px;
 }
 .catalog-search input::placeholder { color: #6f7887; }
+.search-trigger {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  outline: 0 !important;
+  background: transparent;
+  color: #6f7887;
+  font-size: 15px;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: text;
+}
+.search-trigger.has-value { color: #fff; }
 .layout-switch {
   display: inline-flex;
   gap: 5px;
@@ -727,6 +744,7 @@
 .vod-sidebar { display: grid; grid-template-rows: 66px minmax(0, 1fr); gap: 16px; min-height: 0; min-width: 0; }
 .vod-sidebar .catalog-search { width: 100%; height: 66px; }
 .vod-sidebar input { font-size: 26px; }
+.vod-sidebar .search-trigger { font-size: 26px; }
 .vod-sidebar .catalog-search svg { width: 28px; }
 .vod-categories { overflow-y: auto; min-height: 0; padding: 6px; }
 .vod-categories button { width: 100%; min-height: 68px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border: 1px solid #566172; border-radius: 6px; background: #181e28; color: #e9edf5; font-size: 26px; text-align: left; cursor: pointer; }
@@ -735,10 +753,13 @@
 .vod-categories button.active { border-color: #82aaff; background: #254c87; }
 .vod-categories button:focus { background: #f3f6fc; color: #111924; outline: 3px solid #8dbaff; outline-offset: 2px; }
 .vod-categories button:focus small { color: #334568; }
-.vod-content { min-width: 0; min-height: 0; overflow-y: auto; padding: 0 8px 12px; }
+.vod-content { min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; padding: 0 8px 12px; }
 .vod-content::-webkit-scrollbar, .vod-categories::-webkit-scrollbar { width: 6px; background: transparent; }
 .vod-content::-webkit-scrollbar-thumb, .vod-categories::-webkit-scrollbar-thumb { background: #596b82; border-radius: 3px; }
-.vod-content .catalog-heading { min-height: 70px; align-items: flex-start; }
+.vod-content .catalog-heading { min-height: 70px; flex: 0 0 auto; align-items: flex-start; gap: 16px; }
+.vod-content .catalog-heading > div { min-width: 0; }
+.vod-content .catalog-heading h1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vod-content .catalog-heading > span { flex-shrink: 0; }
 .vod-content .catalog-heading h1 { font-size: 32px; }
 .vod-content .catalog-heading p { display: none; }
 .vod-content .catalog-heading > span { font-size: 22px; padding-top: 7px; }
@@ -749,6 +770,17 @@
 .vod-content .content-card strong { font-size: 25px; line-height: 1.3; }
 .vod-content .content-card small { font-size: 20px; line-height: 1.3; color: #b9c3d3; }
 .content-card:focus .content-art { transform: none; outline: 3px solid #a4c3ff; outline-offset: 2px; }
+.series-browser { height: 100%; min-height: 0; }
+.series-browser[hidden] { display: none; }
+.poster-viewport { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 6px 0; scrollbar-color: #596b82 transparent; }
+.poster-viewport::-webkit-scrollbar { width: 6px; }
+.poster-viewport::-webkit-scrollbar-thumb { background: #596b82; border-radius: 3px; }
+.poster-grid { display: grid; gap: 18px; padding: 0 8px 18px; }
+.poster-grid .poster-card { grid-template-rows: 32px minmax(0, 1fr); gap: 8px; align-content: start; }
+.vod-content .poster-grid .content-art { padding-bottom: 0; border-radius: 6px; }
+.vod-content .poster-card strong { display: block; overflow: hidden; font-size: 23px; line-height: 32px; text-overflow: ellipsis; white-space: nowrap; }
+.poster-card:focus { outline: none; }
+.poster-card:focus .content-art { outline: 3px solid #fff; outline-offset: 2px; }
 .pagination { font-size: 24px; }
 .pagination button { width: 64px; height: 58px; }
 .settings-screen { padding: 0 54px 32px; background: #11151b; }
@@ -806,7 +838,7 @@
   .vod-workspace { grid-template-columns: minmax(0, 1fr); }
   .vod-sidebar { grid-template-rows: 58px 180px; }
   .vod-sidebar .catalog-search { height: 58px; }
-  .vod-content { overflow: visible; }
+  .vod-content { height: 640px; overflow: hidden; }
   .vod-content .catalog-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 16px; }
   .vod-content .content-card strong { font-size: 20px; }
   .vod-content .content-card small { font-size: 17px; }
@@ -862,6 +894,8 @@
 .live-search svg { width: 26px; height: 26px; flex: 0 0 auto; }
 .live-search input { min-width: 0; width: 100%; height: 100%; border: 0; outline: 0 !important; background: transparent; color: #fff; font-size: 25px; }
 .live-search input::placeholder { color: #b0bbcb; }
+.live-search .search-trigger { font-size: 25px; color: #b0bbcb; }
+.live-search .search-trigger.has-value { color: #fff; }
 .live-channel-scroll { flex: 1; padding: 4px; }
 .live-channel-row { min-width: 0; display: flex; align-items: stretch; padding-bottom: 8px; }
 .live-channel-pick { min-width: 0; flex: 1; display: flex; align-items: center; gap: 14px; padding: 0 14px; border: 1px solid #3b424d; border-radius: 6px; background: #171c24; color: #fff; text-align: left; cursor: pointer; }
@@ -958,3 +992,16 @@
   .live-selected-info h1 { font-size: 26px; }
   .live-next strong { font-size: 22px; }
 }
+/* A dedicated remote keypad keeps the native keyboard out of PIN entry. */
+.parental-content { height: 100%; }
+.parental-overlay { position: fixed; inset: 0; z-index: 10000; display: flex; align-items: center; justify-content: center; background: rgb(0 0 0 / 85%); }
+.parental-dialog { width: 440px; max-width: calc(100vw - 32px); padding: 28px; background: #17191f; border: 1px solid #717782; border-radius: 8px; text-align: center; color: #fff; }
+.parental-dialog h2 { font-size: 26px; margin: 12px 0; }
+.parental-dialog output { display: flex; justify-content: center; font-size: 32px; height: 46px; }
+.parental-dialog output > span { margin: 0 10px; }
+.parental-error { min-height: 48px; color: #ffb9bc; margin: 4px 0; }
+.parental-keypad { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.parental-keypad button { height: 55px; display: flex; align-items: center; justify-content: center; font-size: 26px; border: 1px solid #717782; border-radius: 4px; color: #fff; background: #292d35; }
+.parental-dialog button:focus-visible { outline: 3px solid white; outline-offset: 1px; background: #454b56; }
+.parental-confirm { width: 100%; margin-top: 14px; }
+.parental-settings { display: grid; gap: 20px; justify-items: start; }

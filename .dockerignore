@@ -1,0 +1,14 @@
+**/node_modules
+**/.next
+**/dist
+**/dist-tv*
+**/artifacts
+**/.turbo
+**/.env
+**/.env.*
+**/*.tsbuildinfo
+**/*.log
+**/*.pem
+**/*.key
+.git
+apps/api/prisma/dev.db*
