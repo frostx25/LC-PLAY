@@ -26,8 +26,10 @@ LG-24,Video,Filmes e episodios,VALIDADO_TV_QA_PUBLICA,Catalogos de dois filmes e
 LG-25,Resiliencia,Sem rede e reconexao,PARCIAL_VALIDADO_TV,Queda e retorno da API foram validados sem perda de ativacao; rede total ainda nao foi interrompida,Executar teste com rede da TV indisponivel
 LG-26,Resiliencia,API sem resposta,VALIDADO_TV,LG C1 em 02/10/2026: timeout de 15 s abriu a Home preservando token; Atualizar recuperou 306 mil itens e EPG apos retorno da API,Repetir no pacote de submissao com backend publico
 LG-27,Resiliencia,Suspenso vencido e sem fonte,VALIDADO_API_PENDENTE_TV,Teste isolado de producao passou sem alterar C1 nem consumir chaves de avaliacao,Repetir comportamento visual somente em dispositivo QA
-LG-28,Resiliencia,Suspensao e retomada,PENDENTE,Nao validado para certificacao,Executar Home standby e relaunch
+LG-28,Resiliencia,Suspensao e retomada,PARCIAL_VALIDADO_TV,App fechado e reaberto na C1 para QA propria do IPK 599e46de com ativacao preservada,Executar Home standby e retomada de audio; relaunch nao substitui esses testes
 LG-29,Desempenho,Reproducao prolongada,PENDENTE,Teste tecnico curto nao prova estabilidade,Medir memoria CPU e video por sessao longa
 LG-30,Compatibilidade,Outras versoes webOS,PENDENTE,C1 webOS 6.5.3 nao representa todos os modelos,Definir suporte e testar modelos alvo
 LG-31,Conteudo,Direitos da fonte QA,PREPARADO,Padroes visuais e tom sintetico sem midia de terceiros,Revisar assets e fonte antes de submeter
 LG-32,Publicacao,Checklist oficial e UX Scenario,RASCUNHO_OFICIAL_GERADO,Planilha oficial 5.0 preenchida como rascunho em outputs e roteiro bilingue documentado,Transcrever UX Scenario e finalizar resultados apos fonte QA e backend publico
+LG-33,Publicacao,Distribuicao e idioma,CONFIRMADO_PELO_USUARIO,Somente Brasil e portugues brasileiro confirmados em 03/10/2026,Selecionar esse escopo no Seller Lounge; nao declarar outros modelos ou idiomas sem teste
+LG-34,UX,Progresso e cache do catalogo,VALIDADO_TV_E_FIXTURE,IPK 599e46de na C1 mostrou velocidade e tempo decorrido; ETA com tamanho conhecido validado localmente; cache de navegacao preservado,Testar sessao real de seis horas e retomada; nao inventar ETA quando fonte omite tamanho

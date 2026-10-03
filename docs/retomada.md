@@ -2,6 +2,45 @@
 
 Estado iniciado em 30/09/2026 e atualizado em 03/10/2026. Repositório: https://github.com/frostx25/LC-PLAY.git.
 
+## Publicacao autorizada no Git e VM; retomada do QA LG (03/10/2026)
+
+- Commit de codigo `1c60cf3` enviado a `origin/main` sob autorizacao do
+  proprietario. Progresso, velocidade/tempo de download, cache nativo de seis
+  horas, testes e documentos enviados; nenhum segredo ou artefato privado.
+- Codigo desse commit sincronizado e comparado ao arquivo Git na VM
+  `/opt/lc-play`. IPK fisico ja testado, SHA-256 `599e46def91f51765e58d7cea99ccc86a1977067d4584358e46be30345a045d0`,
+  preservado privadamente em `/opt/lc-play/releases/1c60cf3/`.
+- Backup privado de banco, fonte e ambiente em
+  `/opt/lc-play/backups/lg-release-1c60cf3-20261003T171700Z`.
+  Verificacao final comparou cadastros estaveis de dispositivos/fontes,
+  hash do ambiente e IDs de TODOS os containers antes/depois: iguais.
+  Sem migracao, seed, restauracao, rebuild ou restart de containers;
+  API/painel/fonte QA nao tiveram codigo de runtime alterado neste release.
+- Depois da sincronizacao, 18 checks HTTPS publicos e painel em desktop
+  1366x768/mobile 390x844 passaram novamente. Seis aparelhos, duas fontes
+  e ativacao da C1 preservados. 38 testes LG, nove de publicacao e seis do
+  servico passaram, assim como typecheck/lint e teste local de progresso.
+- C1 ligada confirmada pelo proprietario no IP `192.168.15.4`. Repetidos
+  leitores offline com rolagem, Back e foco; token preservado. O diagnostico
+  precisou retornar por mais de uma tela a partir de canais/tela cheia;
+  ajustado apenas o script de teste para retorno limitado a quatro passos.
+- Mesmo IPK revalidado na C1 com fonte HTTPS sintetica propria: dois canais
+  MP4/HLS, XMLTV, mesmo video em tela cheia, dois filmes e uma serie/dois
+  episodios. App fechado/reaberto antes da sessao; fonte e catalogo originais
+  restaurados ao terminar. Nao consumiu chaves nem alterou banco. Relatorios
+  `native-support-report.json` e `native-review-report.json` em artifacts.
+  Inspecao verifica estado de audio/video; nao e nova confirmacao visual
+  ou auditiva do usuario, nem teste completo de controle fisico/standby.
+- Proprietario confirmou primeira distribuicao SOMENTE Brasil e interface
+  em portugues brasileiro. `docs/publicacao-lg/envio-seller-lounge.md`
+  registra arquivos, acesso privado e sequencia para o formulario.
+- Cinco chaves privadas expiram em 02/11/2026 UTC. Planilha oficial existente
+  ainda e rascunho com comentarios antigos: revisar N/A, evidencias e
+  resultados antes de qualquer upload. Ainda pendentes token seguro, ACG,
+  licencas, Magic Remote, standby/sessao longa e ativacao fisica QA isolada.
+- NENHUM envio ao Seller Lounge. Ferramentas atuais nao controlam a aba
+  autenticada; acompanhar campos por screenshots. Roku so depois do envio LG.
+
 ## Instalacao autorizada na C1: dados de tempo do download (03/10/2026)
 
 O proprietario autorizou instalar a estimativa. Ultimo pacote validado e

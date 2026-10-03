@@ -14,7 +14,7 @@
 | E-mail | suportelcplay@gmail.com |
 | Categoria sugerida | Entretenimento; confirmar opções do formulário |
 | Idioma da interface atual | Português brasileiro |
-| País inicial sugerido | Brasil; decisão pendente |
+| País inicial | Somente Brasil; confirmado pelo proprietário em 03/10/2026 |
 | Preço/licença do aplicativo | Aplicativo e ativação gratuitos nesta versão; confirmado em 03/10/2026 |
 | Operação | Pessoa física; Leonardo Pereira; São Paulo, Brasil; sem CNPJ |
 | Suporte | `https://lcplay.thxtech.site/legal/`; publicado e verificado em 03/10/2026 |

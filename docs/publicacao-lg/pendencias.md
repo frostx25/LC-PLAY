@@ -4,6 +4,7 @@ Revisão iniciada em 01/10/2026 e atualizada com testes do pacote de produção 
 
 ## Concluido em producao
 
+- Codigo `1c60cf3` e IPK fisico `599e46de...` sincronizados na VM sob autorizacao e enviados ao Git. Backup privado `lg-release-1c60cf3-20261003T171700Z`; ambiente, registros de aparelhos/fontes e IDs de todos os containers iguais antes/depois, sem rebuild ou restart. API/painel e 18 checks publicos aprovados. Repetidos documentos offline e fonte propria MP4/HLS/EPG/filmes/episodios na C1; catalogo original restaurado. Distribuicao inicial somente Brasil e portugues brasileiro confirmada. Nenhuma submissao LG.
 - Atualizacao autorizada somente na C1 com progresso de importacao, cache de 6 horas e dados de tempo do download. IPK `0.1.0` atual: SHA-256 `599e46def91f51765e58d7cea99ccc86a1977067d4584358e46be30345a045d0`. `native-download-timing-report.json` confirma fonte real, velocidade/tempo decorrido, catalogos completos e cache de navegacao, com ativacao/fonte preservadas. Fonte atual nao informa tamanho total; estimativa de restante validada com HTTP local, nao com outra fonte na TV. Revisao fisica completa, standby e sessao prolongada continuam pendentes; nao confundir resultados dos pacotes anteriores com QA final deste IPK.
 - API publica HTTPS em `https://api-lcplay.thxtech.site/api` e painel em `https://lcplay.thxtech.site`, usando Cloudflare Tunnel dedicado na VM. Banco privado, segredos fora do Git e backups iniciais protegidos. Backups externos automatizados e alertas operacionais ainda precisam ser configurados.
 - Pacote de producao instalado na C1 e ativacao preservada. Catalogo completo carregado no aparelho por JavaScript Service nativo, sem depender do IP do computador ou do download da lista pelo backend.
@@ -37,4 +38,4 @@ Revisão iniciada em 01/10/2026 e atualizada com testes do pacote de produção 
 
 ## Operação e revisão
 
-Modalidade pessoa física e gratuidade confirmadas; confirmar país de distribuição e idiomas no formulário e recebimento do e-mail de suporte. Fazer revisão jurídica das condições comerciais, privacidade e eventuais transferências internacionais. Depois, capturar a versão final, preencher formulários oficiais, gerar hash do IPK e submeter somente mediante autorização. Não iniciar Roku antes do envio LG.
+Modalidade pessoa física, gratuidade, distribuicao somente Brasil e interface em portugues brasileiro confirmadas; selecionar esse escopo no formulário e confirmar recebimento do e-mail de suporte. Fazer revisão jurídica das condições comerciais, privacidade e eventuais transferências internacionais. Depois, capturar a versão final, preencher formulários oficiais, gerar hash do IPK e submeter somente mediante autorização. Não iniciar Roku antes do envio LG.

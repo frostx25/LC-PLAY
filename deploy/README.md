@@ -91,6 +91,18 @@ Instalar sobre o mesmo identificador `com.lcplay.tv`, sem desinstalar o app prim
 
 ### Publicacao LG em 03/10/2026
 
+Atualizacao posterior: codigo `1c60cf3` e IPK validado na C1 (SHA-256
+`599e46def91f51765e58d7cea99ccc86a1977067d4584358e46be30345a045d0`)
+sincronizados sob autorizacao. IPK privado em `/opt/lc-play/releases/1c60cf3/`,
+sem rota publica. Backup privado em
+`/opt/lc-play/backups/lg-release-1c60cf3-20261003T171700Z`.
+Codigo foi comparado ao arquivo do Git; registros estaveis de aparelhos/fontes,
+hash do ambiente e IDs de todos os containers permaneceram iguais.
+Sem rebuild/restart: este release muda somente app LG, testes e documentos,
+nao runtime da API, painel ou servidor QA. Os testes HTTPS e painel em
+desktop/mobile passaram novamente. Nao regenerar ou substituir o IPK fisico
+testado somente para atualizar metadados de commit do candidato.
+
 Commit `6daa307` publicado sob autorizacao exclusiva do LC PLAY. Backup de banco,
 fonte, ambiente e Nginx em `/opt/lc-play/backups/lg-release-6daa307-20261003T152639Z`;
 imagem antiga da API em `lc-play-api:rollback-6daa307`. Nenhuma migracao nova,

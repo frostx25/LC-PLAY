@@ -300,7 +300,11 @@ try {
       const state = await evaluate("({hasToken: Boolean(localStorage.getItem('lc_play_device_token')), heading: document.querySelector('h1') ? document.querySelector('h1').textContent : null, focusLabel: document.activeElement.textContent.slice(0, 80), home: Boolean(document.querySelector('.menu-settings')), settings: Boolean(document.querySelector('.settings-screen')), live: Boolean(document.querySelector('.live-screen'))})");
       throw new Error('TV support UI condition timed out: ' + JSON.stringify(state));
     }
-    await evaluate("if (document.querySelector('.settings-screen') || document.querySelector('.live-screen') || document.querySelector('.catalog-screen')) document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { keyCode: 461, bubbles: true, cancelable: true }))");
+    for (let attempt = 0; attempt < 4; attempt++) {
+      if (await evaluate("!!document.querySelector('.menu-settings')")) break;
+      await evaluate("document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', keyCode: 461, bubbles: true, cancelable: true }))");
+      await new Promise((resolvePromise) => setTimeout(resolvePromise, 250));
+    }
     await waitFor("!!document.querySelector('.menu-settings')");
     await evaluate("window.__lcSupportOriginalToken = localStorage.getItem('lc_play_device_token'); document.querySelector('.menu-settings').click()");
     await waitFor("!!document.querySelector('.settings-nav')");

@@ -14,6 +14,7 @@ Suporte e privacidade: **suportelcplay@gmail.com**.
 - [Prévia de suporte e documentos legais](public-site/index.html): textos gerados da mesma fonte do leitor offline da TV; páginas responsivas e com `noindex`.
 - [Fonte de demonstração](demonstracao.md): vídeo técnico próprio, M3U e XMLTV dinâmico.
 - [Pendências técnicas e operacionais](pendencias.md): bloqueios para uma submissão responsável.
+- [Roteiro do Seller Lounge](envio-seller-lounge.md): arquivos, decisões confirmadas e verificações antes de enviar.
 - [Planilha oficial LG 5.0](../../outputs/019dee99-0d76-7cd3-9686-d07823430ee4/lc-play_self_evaluation_draft_5.0.xlsx): rascunho com evidências dos testes locais na C1 e campos de submissão pendentes.
 
 ## Situação
@@ -24,11 +25,12 @@ Suporte e privacidade: **suportelcplay@gmail.com**.
 | ID atual | `com.lcplay.tv`; confirmar antes de submeter |
 | Versão do manifesto | `0.1.0`; pacote, interface e testes padronizados |
 | Cadastro Seller Lounge | Proprietário confirmou conta existente e login no navegador interno em 03/10/2026; sem controle dessa aba pelas ferramentas atuais |
-| Fonte QA própria | Gerador e servidor locais, separados dos clientes reais |
-| Backend acessível pelos avaliadores | API pública HTTPS e produção já validadas na C1; fonte QA própria ainda não pública |
-| Termos e privacidade | Leitor offline implementado no pacote candidato; publicação web pendente de autorização |
-| Acesso de avaliadores | Fluxo local implementado: cinco aparelhos isolados e códigos até 30 dias; provisionamento público e QA final pendentes |
+| Fonte QA própria | M3U, XMLTV e mídia sintética publicados em HTTPS, separados dos clientes reais |
+| Backend acessível pelos avaliadores | API e fonte QA públicas validadas na C1; sem acesso administrativo para avaliadores |
+| Termos e privacidade | Páginas HTTPS e leitores offline publicados e testados |
+| Acesso de avaliadores | Cinco códigos privados de uso único provisionados até 02/11/2026; ativação física em TV QA separada pendente |
 | Modelo comercial | Aplicativo e ativação gratuitos nesta versão |
+| Distribuição e idioma | Somente Brasil e português brasileiro; confirmado em 03/10/2026 |
 | Infraestrutura declarada | Ascent, Brasil; Cloudflare Tunnel/DNS; suporte Gmail |
 | Checklist oficial preenchido | Rascunho gerado com evidências locais; finalizar após a matriz QA |
 | Submissão | Não realizada |
@@ -58,7 +60,7 @@ O servidor usa `127.0.0.1:4180` por padrão. Não altera banco, dispositivos, fo
 - [Recursos gráficos](https://webostv.developer.lge.com/develop/getting-started/app-resources).
 - [Permissões ACG](https://webostv.developer.lge.com/develop/guides/acg-guide).
 
-A LG exige avaliação e documentos próprios. Transferir os resultados para os modelos atuais do Seller Lounge antes da submissão; este kit não simula uma aprovação. O ID não pode ser alterado depois da publicação. A atualização pública dos documentos/fonte QA e a submissão ao Seller Lounge seguem pendentes.
+A LG exige avaliação e documentos próprios. Transferir os resultados para os modelos atuais do Seller Lounge antes da submissão; este kit não simula uma aprovação. O ID não pode ser alterado depois da publicação. Documentos e fonte QA estão públicos; QA final e submissão ao Seller Lounge seguem pendentes.
 
 ## Retomada em 02/10/2026
 
