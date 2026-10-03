@@ -11,9 +11,9 @@ Revisão iniciada em 01/10/2026 e atualizada com testes do pacote de produção 
 
 ## Bloqueios
 
-1. **Acesso de avaliadores:** códigos são temporários e de uso único, com validade máxima de 24 horas. A fila de avaliação pode ultrapassar isso. Definir um processo efetivamente utilizável por uma TV LG externa e documentá-lo; não incluir bypass ou conta administrativa no pacote.
-2. **Privacidade e termos:** rascunhos não estão hospedados, nem há acesso a eles nas configurações do app. Definir operadores, país, bases legais, retenção e fluxo de direitos antes de publicar.
-3. **Cadastro e declaração de conteúdo:** abrir Seller Lounge e confirmar requisitos aplicáveis ao tipo de player. A fonte usada na avaliação deve ser própria ou licenciada; explicar o cadastro administrativo real. A ausência de listas pré-carregadas não garante aprovação.
+1. **Acesso de avaliadores:** implementado localmente o propósito `LG_REVIEW`, restrito a OWNER, dispositivos LG QA novos e fonte técnica própria. Códigos até 30 dias, de uso único e revogáveis, sem bypass ou conta administrativa no pacote. Publicar a fonte própria, provisionar as chaves privadas e validar na TV antes de anunciar disponibilidade. Confirmar processo no Seller Lounge; a fila pode exceder o prazo e exigir reemissão.
+2. **Privacidade e termos:** leitor offline implementado na ativação e em Ajustes; páginas web e imagem Docker preparados localmente. Proprietário confirmou Leonardo Pereira, suporte, pessoa física em São Paulo, gratuidade e Ascent no Brasil. Publicação aguarda autorização. Conferir textos, atendimento manual de direitos, retenção/backups e contratos de transferências com Cloudflare/Google; não tratar esses textos como parecer jurídico ou garantia de conformidade.
+3. **Cadastro e declaração de conteúdo:** proprietário já possui conta e está logado no Seller Lounge. Ferramentas desta sessão não permitem controlar essa aba. Preencher o formulário com o proprietário, usando exclusivamente fonte própria/licenciada e dados verdadeiros. A ausência de listas pré-carregadas não garante aprovação.
 
 ## Revisão técnica
 
@@ -22,7 +22,7 @@ Revisão iniciada em 01/10/2026 e atualizada com testes do pacote de produção 
 - **Heartbeat:** rejeições agora são tratadas; `401/403` encerra a sessão e falhas transitórias mantêm o aparelho ativado com aviso. Revalidar reconexão na TV.
 - **Desconectar versus excluir:** só remove o token local. Há exclusão administrativa de aparelho, mas isso não implementa exclusão/exportação completa do cliente e das cópias de backup. Definir procedimento verificável.
 - **ACG:** o manifesto já declara permissões. Confirmar quais grupos são necessários para os métodos realmente chamados e validar em plataforma com enforcement; C1 não cobre modelos recentes.
-- **Back, Home e retomada:** conferir comportamento na tela inicial, suspensão, relaunch, áudio e retomada em cada plataforma declarada. Não tratar testes de navegador como QA físico.
+- **Back, Home e retomada:** Back na entrada agora delega ao sistema LG com `webOS.platformBack()`, sem disparar enquanto o teclado está aberto. Teste unitário e mock no navegador cobrem a chamada; conferir popup físico, suspensão, relaunch, áudio e retomada em cada plataforma declarada.
 - **Splash:** candidato 1920 × 1080 integrado localmente ao manifesto com `iconColor`, resolução e descrição. Validar a abertura do pacote final na TV antes da submissão.
 - **Versão:** padronizada em `0.1.0` no manifesto, pacote LG e interface, com teste automático contra divergência. Incrementar antes de cada submissão posterior.
 - **Proteção por PIN:** bloqueio efetivo validado na C1 com o pacote de producao; revisar persistencia do PIN, reset e comportamento em outros modelos declarados.
@@ -32,4 +32,4 @@ Revisão iniciada em 01/10/2026 e atualizada com testes do pacote de produção 
 
 ## Operação e revisão
 
-Confirmar modalidade do vendedor, países, idiomas, preço/licença e suporte efetivo. Fazer revisão jurídica das condições comerciais, privacidade e eventuais transferências internacionais. Depois, capturar a versão final, preencher formulários oficiais, gerar hash do IPK e submeter somente mediante autorização.
+Modalidade pessoa física e gratuidade confirmadas; confirmar país de distribuição e idiomas no formulário e recebimento do e-mail de suporte. Fazer revisão jurídica das condições comerciais, privacidade e eventuais transferências internacionais. Depois, capturar a versão final, preencher formulários oficiais, gerar hash do IPK e submeter somente mediante autorização. Não iniciar Roku antes do envio LG.

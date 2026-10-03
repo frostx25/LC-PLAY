@@ -105,7 +105,12 @@ export interface SourceDiagnostic {
 }
 
 export const issueActivationSchema = z.object({
-  ttlMinutes: z.number().int().min(5).max(1440).default(30),
+  purpose: z.enum(["STANDARD", "LG_REVIEW"]).default("STANDARD"),
+  ttlMinutes: z.number().int().min(5).max(43_200).default(30),
+}).superRefine((value, context) => {
+  if (value.purpose === "STANDARD" && value.ttlMinutes > 1440) {
+    context.addIssue({ code: "custom", message: "Chaves comuns têm validade máxima de 24 horas.", path: ["ttlMinutes"] });
+  }
 });
 
 export const activateDeviceSchema = z.object({

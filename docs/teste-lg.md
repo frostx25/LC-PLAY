@@ -254,3 +254,34 @@ Esta etapa substitui a pendencia de catalogo nativo indicada na secao anterior.
 - O navegador local continua usando o catalogo da API; a implementacao
   Roku nao foi migrada. Fontes Xtream ainda nao sao aceitas neste fluxo LG.
   Nenhuma publicacao na VM, alteracao no DashboardConecta ou envio ao Git.
+
+## Candidato de publicacao LG: suporte e documentos (03/10/2026)
+
+Esta etapa e LOCAL e nao substitui os testes fisicos anteriores nem marca o
+novo candidato como validado na TV.
+
+- Suporte, privacidade e termos acessiveis na ativacao e em Ajustes. Texto
+  incorporado ao app e reutilizado para gerar paginas web, sem depender de
+  navegador externo ou de rede para a leitura na TV.
+- Responsavel Leonardo Pereira; suportelcplay@gmail.com; pessoa fisica em
+  Sao Paulo sem CNPJ. Gratuidade do app e ativacao nesta versao confirmada
+  pelo proprietario. Hospedagem declarada: Ascent, Brasil.
+- Leitura, rolagem, foco e Back passaram no navegador em 1920x1080,
+  1280x720 e 390x844. As paginas web nao tiveram overflow horizontal nem
+  imagens ausentes nesses tamanhos. Relatorio e capturas locais:
+  `artifacts/lg-store/support-validation/`.
+- Back na entrada utiliza webOS.platformBack quando o teclado nao esta
+  aberto. Testado por unidade/mock; falta repetir o popup na TV fisica.
+- Fluxo LG_REVIEW: somente OWNER, LG QA nova, fonte tecnica propria e
+  chave ate 30 dias. Padrao continua limitado a 24 horas. Uso unico
+  protegido por reivindicacao atomica, inclusive sob concorrencia.
+- Imagem Docker local das paginas e fonte tecnica passou em modo readonly
+  sem rede externa: HTML, imagens, M3U e EPG 200; faixa MP4 206; caminhos
+  privados e kit interno 404. Nao foi publicada na VM.
+- Testes: 34 API, 31 player e 3 admin; 9 publicacao e 6 transporte nativo.
+  Typecheck/lint passaram. Avisos existentes do runner/dependencias nao
+  foram tratados como falha, nem como prova de certificacao.
+- Novo IPK de producao gerado no mesmo ID/versao. Ainda NAO instalado
+  nesta etapa e NAO submetido. Hash atualizado e estado local registrado
+  no manifesto gerado em `artifacts/lg-submission/candidate/manifest.json`.
+- Nenhum envio ao Git, alteracao do DashboardConecta ou inicio do Roku.

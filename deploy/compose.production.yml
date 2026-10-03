@@ -69,5 +69,26 @@ services:
     mem_limit: 768m
     logging: *logging
 
+  lg-public:
+    profiles: [lg-review]
+    build:
+      context: ../artifacts/lg-public
+    restart: unless-stopped
+    environment:
+      LG_PUBLIC_RELEASE_APPROVED: ${LG_PUBLIC_RELEASE_APPROVED:-0}
+      LG_PUBLIC_BASE_URL: https://lcplay.thxtech.site
+    ports:
+      - "127.0.0.1:4181:4180"
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:4180/legal/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    mem_limit: 128m
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    logging: *logging
+
 volumes:
   postgres:

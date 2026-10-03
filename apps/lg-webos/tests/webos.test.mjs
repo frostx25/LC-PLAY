@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getLgDeviceIdentity } from "../src/lib/webos.ts";
+import { getLgDeviceIdentity, handleLgPlatformBack } from "../src/lib/webos.ts";
 
 test("biblioteca carregada no navegador preserva identidade de preview", async () => {
   const windowBefore = globalThis.window;
@@ -45,4 +45,19 @@ test("TV sem biblioteca ou sem LGUDID não recebe identificador inventado", asyn
   } finally {
     globalThis.window = windowBefore;
   }
+});
+
+test("Back na entrada usa o sistema LG sem fechar o teclado nem navegar o preview", () => {
+  const before = globalThis.window;
+  let calls = 0;
+  try {
+    globalThis.window = { webOS: { platform: { unknown: true }, platformBack() { calls++; } } };
+    assert.equal(handleLgPlatformBack(), false);
+    globalThis.window = { webOS: { platform: { tv: true }, keyboard: { isShowing: () => true }, platformBack() { calls++; } } };
+    assert.equal(handleLgPlatformBack(), false);
+    assert.equal(calls, 0);
+    globalThis.window.webOS.keyboard.isShowing = () => false;
+    assert.equal(handleLgPlatformBack(), true);
+    assert.equal(calls, 1);
+  } finally { globalThis.window = before; }
 });

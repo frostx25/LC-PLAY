@@ -10,6 +10,8 @@ declare global {
     PalmServiceBridge?: unknown;
     webOS?: {
       platform?: { tv?: boolean };
+      platformBack?: () => void;
+      keyboard?: { isShowing?: () => boolean };
       service?: {
         request: (uri: string, options: WebOsRequest) => { cancel?: () => void };
       };
@@ -19,6 +21,13 @@ declare global {
 }
 
 const PREVIEW_ID_KEY = "lc_play_preview_device_id";
+
+export function handleLgPlatformBack(): boolean {
+  const webOS = window.webOS;
+  if (!webOS?.platform?.tv || !webOS.platformBack || webOS.keyboard?.isShowing?.()) return false;
+  webOS.platformBack();
+  return true;
+}
 
 function previewDeviceId() {
   const existing = localStorage.getItem(PREVIEW_ID_KEY);

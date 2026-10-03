@@ -2,6 +2,90 @@
 
 Estado iniciado em 30/09/2026 e atualizado em 03/10/2026. Repositório: https://github.com/frostx25/LC-PLAY.git.
 
+## Ponto de parada: preparacao final LG (03/10/2026)
+
+O proprietario pediu salvar no Git e continuar amanha. **Finalizar e enviar
+LG antes de iniciar Roku. Nao houve nova publicacao na VM nem envio a LG
+nesta etapa.** A conexao SSH iniciada ficou apenas no pedido de senha e
+foi encerrada, sem executar comandos remotos.
+
+- Conta Seller Lounge ja existente; proprietario informou login no
+  navegador interno. As ferramentas desta sessao nao permitiram controlar
+  essa aba. Na retomada, conferir a disponibilidade do controle; caso
+  continue indisponivel, orientar pelos campos/capturas fornecidos pelo
+  proprietario, sem inventar que houve acesso ou submissao.
+- Confirmado para LC PLAY: Leonardo Pereira, suportelcplay@gmail.com,
+  pessoa fisica em Sao Paulo sem CNPJ; aplicativo e ativacao gratuitos
+  nesta versao; fornecedor da VM informado como Ascent, Brasil.
+- Leitor offline de suporte/privacidade/termos implementado na ativacao e
+  em Ajustes > Suporte e documentos. Texto unico em
+  `apps/lg-webos/src/lib/legal-content.json`; paginas e Markdown gerados
+  por `pnpm lg:store:legal`. Nao confundir identificacao deste projeto
+  com os dados dos antigos projetos Classificados/Thx Tech.
+- Back na entrada agora chama webOS.platformBack, respeitando teclado
+  aberto. Leitor fecha com Back, restaura foco e suporta setas/ponteiro.
+  Testado no navegador; falta teste fisico do NOVO pacote na C1.
+- Fluxo LG_REVIEW implementado LOCALMENTE na API: OWNER, LG QA nova,
+  URL exata da fonte tecnica propria, chave ate 30 dias e uso unico
+  atomico. Chaves comuns seguem maximo de 24 horas. Script de
+  provisionamento ainda NAO executado e codigos QA ainda NAO emitidos.
+- `lg-public` preparado no Compose com profile `lg-review`, Docker
+  readonly, bind 127.0.0.1:4181 e aprovacao explicita. Contexto gerado
+  em `artifacts/lg-public`; publicar somente essa allowlist de documentos
+  e midia tecnica. Nao publicar o kit interno inteiro ou credenciais.
+- Proprietario AUTORIZOU atualizar exclusivamente o LC PLAY na VM para
+  paginas/fonte/aparelhos QA, mas em seguida pediu parar para salvar no
+  Git. Deploy foi adiado; retomar esse escopo com confirmacao antes de
+  executar. Preservar DashboardConecta, site principal e C1 real.
+- Candidato local em `artifacts/lg-submission/candidate`, ID
+  `com.lcplay.tv`, versao 0.1.0, API HTTPS de producao. SHA-256 IPK:
+  `952e0c57f12e4a989f01402404c5202ffd768132530b71254d4b57bd21a496e3`.
+  NAO instalado nesta etapa. IPKs/relatorios gerados e segredos continuam
+  ignorados no Git; fontes e geradores sao versionados para reproducao.
+- Validacoes passaram: 34 API + 31 LG + 3 admin + 9 publicacao + 6
+  transporte = 83 testes; lint/typecheck; pacote de producao; Docker
+  readonly com MP4 Range 206; leitor/paginas em 1920x1080, 1280x720 e
+  390x844. Os previews sao de navegador com fonte propria e API mock,
+  nao prova fisica ou aprovacao LG.
+
+### Ordem para retomar
+
+1. Confirmar retomada do deploy exclusivo LC PLAY. Fazer backup e verificar
+   servicos existentes; atualizar API e subir lg-public, sem alterar
+   dados/senha/ativacao existentes. Nenhuma migracao nova foi criada.
+2. Aplicar as rotas publicas allowlist de deploy/nginx.tunnel.conf somente
+   depois de lg-public estar saudavel. Verificar HTTPS das tres paginas,
+   M3U, EPG, HLS/MP4 e caminhos privados 404; site/painel/API preservados.
+3. Provisionar cinco dispositivos QA via
+   `scripts/prepare-lg-review-access.mjs`, com token OWNER privado e
+   aprovacao explicita para producao. Arquivo de chaves fora do Git:
+   `artifacts/lg-submission/reviewer-access.private.json`.
+4. Revalidar o novo candidato na C1 e o fluxo QA sem sobrescrever o cadastro
+   real. Completar Magic Remote, Back/popup, Home, standby/retomada,
+   fontes ausentes/suspensas/vencidas e reproducao prolongada. Rever token
+   local, ACG, licencas, direitos/retencao/backups e textos legais.
+5. Atualizar UX Scenario e checklist OFICIAIS com resultados reais; definir
+   pais/modelos alvo, conferir arquivos e enviar pelo Seller Lounge com
+   o proprietario. Nao marcar teste pendente como aprovado.
+6. Somente depois do envio confirmado a LG, iniciar implementacao e testes
+   na Roku.
+
+### Reproduzir o material local
+
+```powershell
+pnpm lg:store:assets
+pnpm lg:store:legal
+pnpm lg:store:test
+pnpm --filter @lc-play/lg-webos package:tv:production
+pnpm lg:store:public:package
+```
+
+Com Vite do player ativo em http://127.0.0.1:5173, executar tambem
+`pnpm lg:store:verify:support`, `pnpm lg:store:capture` e
+`pnpm lg:store:submission:package`. Nao iniciar multiplos servidores na
+mesma porta; conferir os que ja estao rodando. As secoes seguintes
+preservam o historico e NAO substituem este ponto de parada.
+
 ## Atualizacao de 03/10/2026
 
 - Checkout atual: `C:\Users\leeoc\Desktop\PROJETOS\tv-player-platform`. As secoes anteriores abaixo sao historicas; limites de catalogo e pendencias da LG nelas foram superados pelos testes recentes.
@@ -16,7 +100,7 @@ Estado iniciado em 30/09/2026 e atualizado em 03/10/2026. Repositório: https://
 - Painel HTTPS validado em desktop e celular, incluindo login/logout, cookie Secure/HttpOnly, todas as paginas, cadastros preservados, endpoints protegidos e CORS webOS.
 - Backups iniciais e configuracao privada protegidos na VM; credenciais temporarias de autorizacao e uploads removidos. Operacao, backups e novos deploys documentados em `deploy/README.md`.
 - Codigo da implantacao e das validacoes incluido neste checkpoint do Git, por solicitacao do proprietario. Credenciais, bancos, relatorios privados e pacotes gerados continuam fora do repositorio. Novos deploys dependem de solicitacao.
-- Proximos passos: implementar/testar o Roku e concluir a submissao do app LG. O backend publico deixou de ser pendencia; validar os demais itens da publicacao em `docs/publicacao-lg/pendencias.md`.
+- Proximos passos atualizados pelo proprietario: concluir a submissao LG primeiro e somente depois implementar/testar Roku. O backend publico deixou de ser pendencia; validar os demais itens da publicacao em `docs/publicacao-lg/pendencias.md`.
 
 ## Atualização de 01/10/2026
 

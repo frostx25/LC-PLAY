@@ -20,6 +20,7 @@ import {
   Heart,
   KeyRound,
   Layers3,
+  LifeBuoy,
   LayoutGrid,
   ListVideo,
   LoaderCircle,
@@ -36,11 +37,12 @@ import {
 import { isAuthenticationFailure, request } from "./lib/device-api";
 import { APP_VERSION } from "./lib/release";
 import { SearchField } from "./components/SearchField";
+import { SupportDocuments } from "./components/SupportDocuments";
 import { VirtualPosterGrid } from "./components/VirtualPosterGrid";
 import { ParentalControlProvider } from "./components/ParentalControl";
 import { useParentalControl } from "./lib/parental-context";
 import { isAdultGroup } from "./lib/parental";
-import { getLgDeviceIdentity } from "./lib/webos";
+import { getLgDeviceIdentity, handleLgPlatformBack } from "./lib/webos";
 import { loadChannelEpg, nativeGuideSupported } from "./lib/channel-epg";
 import { clearNativeCatalog, loadNativeCatalog, loadNativeEpisodes, nativeCatalogSupported } from "./lib/native-catalog";
 import { useSpatialNavigation } from "./lib/spatial-navigation";
@@ -92,6 +94,17 @@ function App() {
   const catalogCacheRef = useRef(new Map<CatalogKind, { catalog: DeviceCatalog; expiresAt: number }>());
 
   useSpatialNavigation(mode !== "loading");
+
+  useEffect(() => {
+    if (mode === "home") return;
+    const handleBack = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || !(event.key === "Escape" || event.key === "Backspace" || event.keyCode === 461)) return;
+      if (event.key === "Backspace" && document.activeElement instanceof HTMLInputElement) return;
+      if (handleLgPlatformBack()) event.preventDefault();
+    };
+    window.addEventListener("keydown", handleBack);
+    return () => window.removeEventListener("keydown", handleBack);
+  }, [mode]);
 
   const clearDeviceSession = useCallback(() => {
     catalogRequestRef.current?.abort();
@@ -393,6 +406,7 @@ function ActivationScreen({
           </button>
           {onDemo ? <button data-focusable type="button" className="tv-ghost" onClick={onDemo}>Abrir demonstração</button> : null}
         </form>
+        <SupportDocuments compact />
         <footer>LC PLAY · Seu conteúdo. Sua tela.</footer>
       </section>
       <section className="activation-visual" aria-label="Entretenimento LC PLAY">
@@ -458,6 +472,8 @@ function PlayerContent({
       } else if (view !== "HOME") {
         event.preventDefault();
         setView("HOME");
+      } else if (handleLgPlatformBack()) {
+        event.preventDefault();
       }
     };
     window.addEventListener("keydown", onBack);
@@ -466,7 +482,7 @@ function PlayerContent({
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      if (document.activeElement instanceof HTMLInputElement || document.querySelector(".parental-dialog")) return;
+      if (document.activeElement instanceof HTMLInputElement || document.querySelector("[aria-modal='true']")) return;
       const visible = (selector: string) => Array.from(document.querySelectorAll<HTMLElement>(selector)).find((element) => element.offsetParent !== null);
       const target = playing
         ? document.querySelector<HTMLElement>(playing.kind === "LIVE" ? ".live-preview.is-fullscreen" : ".stream-player")
@@ -1192,7 +1208,7 @@ function SettingsScreen({
   onRefresh: () => Promise<void>;
   onDisconnect: () => void;
 }) {
-  const [section, setSection] = useState<"ACCOUNT" | "DEVICE" | "PARENTAL">("ACCOUNT");
+  const [section, setSection] = useState<"ACCOUNT" | "DEVICE" | "PARENTAL" | "SUPPORT">("ACCOUNT");
   const parental = useParentalControl();
   return (
     <section className="settings-screen">
@@ -1203,12 +1219,13 @@ function SettingsScreen({
           <button data-focusable data-autofocus className={section === "ACCOUNT" ? "active" : ""} onClick={() => setSection("ACCOUNT")}><Radio />Conta e conteúdo</button>
           <button data-focusable className={section === "DEVICE" ? "active" : ""} onClick={() => setSection("DEVICE")}><MonitorPlay />Dispositivo</button>
           <button data-focusable className={section === "PARENTAL" ? "active" : ""} onClick={() => setSection("PARENTAL")}><LockKeyhole />Controle parental</button>
+          <button data-focusable className={section === "SUPPORT" ? "active" : ""} onClick={() => setSection("SUPPORT")}><LifeBuoy />Suporte e documentos</button>
           <button data-focusable onClick={() => void onRefresh()} disabled={loading}>{loading ? <LoaderCircle className="spin" /> : <RefreshCw />}Atualizar conteúdo</button>
           {!demo ? <button data-focusable className="danger-button" onClick={onDisconnect}><LogOut />Desconectar aparelho</button> : null}
         </nav>
         <div className="settings-information">
-          <h2>{section === "PARENTAL" ? "Controle parental" : section === "ACCOUNT" ? "Informações da conta" : "Informações do dispositivo"}</h2>
-          {section === "PARENTAL" ? <div className="parental-settings">
+          <h2>{section === "SUPPORT" ? "Suporte LC PLAY" : section === "PARENTAL" ? "Controle parental" : section === "ACCOUNT" ? "Informações da conta" : "Informações do dispositivo"}</h2>
+          {section === "SUPPORT" ? <SupportDocuments /> : section === "PARENTAL" ? <div className="parental-settings">
             <p>Conteúdo adulto: {parental.unlocked ? "liberado nesta sessão" : "bloqueado"}</p>
             <button data-focusable className="tv-primary" onClick={parental.changePin}><KeyRound />Alterar PIN</button>
             <button data-focusable className="tv-ghost" disabled={!parental.unlocked} onClick={parental.lock}><LockKeyhole />Bloquear agora</button>

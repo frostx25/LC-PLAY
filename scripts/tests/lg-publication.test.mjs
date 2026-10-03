@@ -3,7 +3,7 @@ import { once } from 'node:events';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import sharp from 'sharp';
-import { createReviewServer } from '../lg-review-server.mjs';
+import { createPublicReviewServer, createReviewServer } from '../lg-review-server.mjs';
 import { normalizeReviewUrl, parseByteRange, reviewCatalog, reviewItems, reviewM3u, reviewProgrammes, reviewXmltv } from '../lg-review-fixture.mjs';
 
 test('review fixture contains unique URLs and only technical content', () => {
@@ -93,4 +93,37 @@ test('manifesto LG referencia recursos obrigatórios e splash 1920 por 1080', as
   assert.ok(typeof manifest.appDescription === 'string' && manifest.appDescription.length <= 60);
   const metadata = await sharp(await readFile(new URL('../../apps/lg-webos/public/splash.png', import.meta.url))).metadata();
   assert.deepEqual([metadata.width, metadata.height, metadata.format], [1920, 1080, 'png']);
+});
+
+test('publicação expõe somente documentos e mídia técnica; nunca o kit interno', async (t) => {
+  assert.throws(() => createPublicReviewServer({ baseUrl: 'http://localhost' }), /requires HTTPS/);
+  const server = createPublicReviewServer({ baseUrl: 'https://lcplay.thxtech.site' });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+  const origin = `http://127.0.0.1:${server.address().port}`;
+  for (const path of ['/', '/rights.json', '/docs/publicacao-lg/loja.md', '/artifacts/lg-submission/reviewer-access.private.json', '/api/admin/devices', '/.env']) {
+    assert.equal((await fetch(origin + path)).status, 404);
+  }
+  const playlist = await fetch(`${origin}/playlist.m3u`);
+  assert.match(await playlist.text(), /https:\/\/lcplay\.thxtech\.site\/media\/sample\.mp4/);
+  assert.equal(playlist.headers.get('x-robots-tag'), 'noindex, nofollow');
+  const privacy = await fetch(`${origin}/legal/privacidade`);
+  assert.equal(privacy.status, 200);
+  assert.match(privacy.headers.get('content-security-policy'), /frame-ancestors 'none'/);
+  assert.match(await privacy.text(), /Ascent no Brasil/);
+  assert.equal((await fetch(`${origin}/playlist.m3u`, { method: 'POST' })).status, 405);
+});
+
+test('documentos da web e da TV têm o mesmo texto, responsável e gratuidade', async () => {
+  const content = JSON.parse(await readFile(new URL('../../apps/lg-webos/src/lib/legal-content.json', import.meta.url), 'utf8'));
+  assert.equal(content.operator, 'Leonardo Pereira');
+  assert.equal(content.email, 'suportelcplay@gmail.com');
+  const files = { support: 'index', privacy: 'privacidade', terms: 'termos' };
+  for (const [id, document] of Object.entries(content.documents)) {
+    const html = await readFile(new URL(`../../docs/publicacao-lg/public-site/${files[id]}.html`, import.meta.url), 'utf8');
+    for (const section of document.sections) for (const paragraph of section.paragraphs) assert.ok(html.includes(paragraph));
+    assert.match(html, /ativação gratuitos nesta versão/);
+    assert.doesNotMatch(html, /ainda precisam ser|confirmados antes do lançamento/);
+  }
 });

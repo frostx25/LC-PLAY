@@ -15,8 +15,10 @@
 | Categoria sugerida | Entretenimento; confirmar opções do formulário |
 | Idioma da interface atual | Português brasileiro |
 | País inicial sugerido | Brasil; decisão pendente |
-| Preço/licença do aplicativo | A definir; não anunciar gratuito ou vitalício sem decisão |
-| URLs de suporte e privacidade | Ainda não publicadas |
+| Preço/licença do aplicativo | Aplicativo e ativação gratuitos nesta versão; confirmado em 03/10/2026 |
+| Operação | Pessoa física; Leonardo Pereira; São Paulo, Brasil; sem CNPJ |
+| Suporte planejado | `https://lcplay.thxtech.site/legal/`; preparado localmente, publicação pendente |
+| Privacidade planejada | `https://lcplay.thxtech.site/legal/privacidade`; preparado localmente, publicação pendente |
 
 ## Português
 
@@ -34,7 +36,9 @@ A ativação é realizada por chave. O responsável pelo serviço cadastra a fon
 
 LC PLAY não inclui canais, filmes, séries ou assinaturas de conteúdo. Uma fonte válida e acesso à internet são necessários. Disponibilidade, qualidade e compatibilidade de reprodução dependem da fonte, da conexão e dos recursos da TV. Nesta versão, o player utiliza fontes M3U; Xtream não está disponível para reprodução.
 
-Suporte: suportelcplay@gmail.com.
+O aplicativo e a ativação são gratuitos nesta versão. Não há assinatura de conteúdo incluída.
+
+Suporte: suportelcplay@gmail.com. Política de privacidade e termos podem ser lidos na ativação e em Ajustes > Suporte e documentos.
 
 ## English
 
@@ -52,7 +56,9 @@ Activation requires a device code. The service administrator registers a source 
 
 LC PLAY does not include channels, movies, series or content subscriptions. Internet access and a valid source are required. Availability, quality and playback compatibility depend on the source, connection and TV capabilities. This version supports M3U playback; Xtream playback is not available.
 
-Support: suportelcplay@gmail.com. The current app interface is in Brazilian Portuguese.
+The app and device activation are free in this version. No content subscription is included.
+
+Support: suportelcplay@gmail.com. Privacy and terms can be read before activation and in Settings > Support and documents. The current app interface is in Brazilian Portuguese.
 
 ## Imagens
 

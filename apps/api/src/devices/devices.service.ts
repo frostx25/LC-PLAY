@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
@@ -19,6 +20,7 @@ import {
 import type { AdminTokenPayload } from "../common/types";
 import {
   hashPassword,
+  decryptSecret,
   hmacIdentifier,
   normalizeActivationCode,
   randomActivationCode,
@@ -235,8 +237,19 @@ export class DevicesService {
   }
 
   async issueActivation(admin: AdminTokenPayload, deviceId: string, input: unknown) {
-    const { ttlMinutes } = parseBody(issueActivationSchema, input ?? {});
+    const { ttlMinutes, purpose } = parseBody(issueActivationSchema, input ?? {});
     const device = await this.findOwnedDevice(admin.tenantId, deviceId);
+    if (purpose === "LG_REVIEW") {
+      if (admin.role !== "OWNER") throw new ForbiddenException("Somente o responsável pode preparar a revisão LG.");
+      if (device.platform !== "LG_WEBOS" || device.status !== "PENDING" || device.platformIdentifierHmac || device.deviceTokenHash || !device.label.startsWith("LG QA - ")) {
+        throw new BadRequestException("Use um dispositivo LG QA novo e separado dos clientes.");
+      }
+      const playlist = device.playlistId ? await this.prisma.playlist.findFirst({ where: { id: device.playlistId, tenantId: admin.tenantId } }) : null;
+      if (!playlist || playlist.type !== "M3U" || playlist.status !== "ACTIVE" ||
+          decryptSecret(playlist.sourceUrlEncrypted, this.config.getOrThrow<string>("DATA_ENCRYPTION_KEY")) !== "https://lcplay.thxtech.site/playlist.m3u") {
+        throw new BadRequestException("A revisão LG exige a fonte técnica própria, sem conteúdo de clientes.");
+      }
+    }
     const code = randomActivationCode();
     const normalizedCode = normalizeActivationCode(code);
     const expiresAt = new Date(Date.now() + ttlMinutes * 60_000);
@@ -266,7 +279,7 @@ export class DevicesService {
           action: "device.activation_issued",
           entityType: "Device",
           entityId: deviceId,
-          metadata: { expiresAt: expiresAt.toISOString(), codeHint: normalizedCode.slice(-4) },
+          metadata: { expiresAt: expiresAt.toISOString(), codeHint: normalizedCode.slice(-4), purpose },
         },
       }),
     ]);
@@ -350,10 +363,12 @@ export class DevicesService {
     const secret = randomDeviceSecret();
     const now = new Date();
     const updatedDevice = await this.prisma.$transaction(async (transaction) => {
-      await transaction.activationCode.update({
-        where: { id: activation.id },
+      // Claim the one-use code atomically, including concurrent activation attempts.
+      const claimed = await transaction.activationCode.updateMany({
+        where: { id: activation.id, status: "PENDING", expiresAt: { gt: now } },
         data: { status: "USED", usedAt: now },
       });
+      if (claimed.count !== 1) throw new BadRequestException("Chave de ativação inválida, expirada ou já utilizada.");
       const result = await transaction.device.update({
         where: { id: activation.deviceId },
         data: {

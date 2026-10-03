@@ -7,9 +7,13 @@ TV física já utilizada: LG OLED55C1PSA, webOS SDK 6.5.3. Não declarar suporte
 
 ## Preparação do avaliador
 
-Antes de submeter, disponibilizar uma API pública HTTPS e uma fonte QA própria acessível fora da rede local. A fonte QA deve estar vinculada a um dispositivo separado dos clientes reais.
+A API já está publicada em `https://api-lcplay.thxtech.site/api`. Antes de submeter, publicar também a fonte QA própria e os documentos no host do painel, sem alterar a fonte ou ativação da C1 do proprietário.
 
-Uma chave é temporária, de uso único e vinculada à plataforma. O painel permite duração de até 24 horas. Não inserir aqui chave, senha administrativa, token de dispositivo, LGUDID ou credenciais de clientes. A fila de análise pode exceder essa duração: definir com o Seller Lounge um processo de ativação testável, documentado e compatível com o fluxo real antes da submissão. Não criar bypass de autenticação no pacote.
+Chaves normais mantêm duração máxima de 24 horas. O fluxo local `LG_REVIEW`, exclusivo do responsável OWNER, permite até 30 dias somente para dispositivos LG QA novos, sem vínculo anterior, e para a fonte técnica própria. Não há bypass no aplicativo: a mesma ativação, identificação e autenticação são utilizadas.
+
+`scripts/prepare-lg-review-access.mjs` prepara cinco dispositivos QA e salva as chaves em `artifacts/lg-submission/reviewer-access.private.json`, ignorado pelo Git. O arquivo não deve ser publicado. Fornecer as chaves somente nos campos privados destinados aos avaliadores. Cada TV usa uma chave diferente; reinstalação com perda da sessão ou consumo de todas as chaves exige contato com o suporte para desvinculação e nova chave. Confirmar aceitação desse procedimento no Seller Lounge e monitorar a expiração, renovando o acesso quando necessário.
+
+Não inserir neste roteiro público senha administrativa, token de dispositivo, LGUDID ou credenciais de clientes. Provisionamento e teste real do acesso QA ainda dependem de autorização para atualizar a VM.
 
 ## Roteiro em português
 
@@ -28,6 +32,7 @@ Uma chave é temporária, de uso único e vinculada à plataforma. O painel perm
 | Filmes | Abrir um filme técnico | Grade e reprodução; Back retorna ao catálogo |
 | Séries | Abrir a série técnica e um episódio | Título, temporada, episódios e reprodução |
 | Configurações | Abrir conta/dispositivo | Exibir fonte, validade e informações disponíveis |
+| Suporte e documentos | Abrir Privacidade ou Termos na ativação e em Ajustes | Leitura no app sem internet; rolagem por setas/ponteiro; Back restaura a tela e o foco |
 | Recarregar | Usar Recarregar/Atualizar conteúdo | Atualizar configuração e seção, preservando fonte autorizada |
 | Desconectar | Usar Desconectar aparelho | Remover token local e voltar à ativação; não é exclusão de dados no servidor |
 | Fonte ausente | Testar dispositivo QA sem fonte | Mensagem adequada, sem catálogo de terceiros |
@@ -39,9 +44,11 @@ Uma chave é temporária, de uso único e vinculada à plataforma. O painel perm
 
 LC PLAY is an M3U player. It does not include a commercial channel or movie subscription. Sources are registered by the service administrator and assigned to a device; the TV user cannot add a playlist directly.
 
-The interface is currently in Brazilian Portuguese. Main menu labels: **TV ao vivo** (Live TV), **Filmes** (Movies), **Séries** (Series), **Recarregar** (Reload) and **Configurações** (Settings). **Voltar** means Back; **Desconectar aparelho** clears the local activation token.
+The interface is currently in Brazilian Portuguese. Main menu labels: **TV ao vivo** (Live TV), **Filmes** (Movies), **Séries** (Series), **Recarregar** (Reload) and **Ajustes** (Settings). **Voltar** means Back; **Desconectar aparelho** clears the local activation token.
 
-Use the documented QA activation procedure supplied privately with the submission. Do not use production customer credentials. A pending review activation procedure is a release blocker, not an already available feature.
+Use a QA activation code supplied privately with the submission; use a separate code for each TV. Codes are single-use and valid for up to 30 days from issue. The same production activation flow is used, without a hidden review mode or a bypass. After activating, the device session is separate from the code's expiry. If all codes are consumed, expire or installation data is cleared, contact support for a new isolated code. Never use production customer credentials or an admin account. Deployment and validation of reviewer access are still pending; do not submit this draft as completed QA.
+
+The application and activation are free in this version. **Suporte e documentos** provides offline support, privacy and terms. Use Back to close a document without leaving Settings. At the app entry screen, Back delegates to the LG system (exit confirmation on webOS 6+, Home launcher on older supported systems); physical validation remains required.
 
 For Live TV, select a channel once to start the preview with sound. Select the same channel again to enlarge it. Press Back to return to the guide. Movie and series items use the same authorized technical test clip; channel programmes are synthetic XMLTV entries for guide testing, not broadcast schedules. The QA clip contains generated colour patterns, a moving marker and a quiet test tone. Start at low TV volume.
 

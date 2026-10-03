@@ -1,43 +1,57 @@
-# Política de privacidade LC PLAY
+# Política de Privacidade
 
-**RASCUNHO LOCAL: não aprovado nem publicado.** Revisar práticas, prazos e fornecedores antes de uso público. Não constitui parecer jurídico ou garantia de conformidade.
+Proposta para publicação. Revisão 2026-10-03. Texto compartilhado com a TV e as páginas web em `apps/lg-webos/src/lib/legal-content.json`.
 
-Versão de trabalho: 01/10/2026.
+## Responsável pelo tratamento
 
-## Responsável e contato
+Leonardo Pereira, pessoa física em São Paulo, SP, Brasil, sem CNPJ constituído, é o responsável pelo LC PLAY. Para exercer direitos ou esclarecer dúvidas sobre dados: suportelcplay@gmail.com.
 
-Responsável informado: **Leonardo Pereira**. Solicitações sobre dados e suporte: **suportelcplay@gmail.com**. A modalidade de operação, identificação legal e endereço de atendimento devem ser confirmados antes da publicação; não há CNPJ informado neste kit.
+## Dados tratados
 
-## Dados e finalidades
+O cadastro administrativo pode conter nome do dispositivo ou cliente, e-mail, telefone e observações fornecidas ao responsável. O serviço registra plataforma, modelo, versão do sistema e aplicativo, validade, estado de ativação e última conexão.
 
-O LC PLAY utiliza o nome atribuído ao dispositivo/cliente e, quando fornecidos ao administrador, e-mail, telefone e observações para cadastro, atendimento e gestão do serviço. Não informe dados sensíveis em observações.
+Na ativação, a TV transmite seu identificador LGUDID ao servidor. Ele é transformado com HMAC para vincular o aparelho. Esse identificador é pseudonimizado, não anônimo. Chaves de ativação e tokens são armazenados como hashes no banco; credenciais das fontes são cifradas no servidor.
 
-Para ativar e identificar uma TV, o app transmite seu identificador LGUDID e informações disponíveis de modelo, sistema e versão. O servidor deriva um identificador com HMAC; isso é pseudonimização, não anonimização. Mantém também situação, validade e horários de ativação e última conexão para autorização e diagnóstico.
+O aplicativo mantém no aparelho o token de sessão e preferências, incluindo favoritos e controle parental. O catálogo e o guia podem ser armazenados temporariamente no aparelho. O token local permite acesso ao dispositivo e não deve ser compartilhado.
 
-URLs de listas e EPG, e credenciais quando necessárias, permitem obter catálogos e programação. Esses dados são armazenados criptografados no servidor. Senhas administrativas e tokens são representados por hashes no banco; o token necessário à TV é mantido no armazenamento local do aplicativo. Favoritos de canais são armazenados localmente.
+Registros técnicos e de auditoria podem conter endereço IP, data, responsável pela operação, ação e identificadores de registros. Mensagens de suporte contêm os dados que você decidir enviar. Não solicitamos dados de pagamento nesta versão gratuita.
 
-Registros de operações administrativas e de ativação podem conter identificação do ator, data, dispositivo, metadados e IP quando registrado. Na versão examinada, a API não recebe eventos de cada título assistido; isso não significa que o fornecedor de vídeo deixe de registrar acesso.
+## Finalidades e bases legais
 
-## Fontes e infraestrutura
+Os dados necessários à ativação, vínculo de fonte, funcionamento e suporte são tratados para executar o serviço solicitado e os procedimentos relacionados a ele. Obrigações legais podem exigir a conservação de determinados registros.
 
-A API consulta a lista e o EPG; a TV solicita imagens e vídeo diretamente aos endereços da fonte. Esses fornecedores podem receber IP, requisições e informações técnicas, conforme suas próprias práticas. Credenciais presentes em URLs de mídia são necessárias à conexão e não devem aparecer em imagens ou registros públicos.
+Registros mínimos de segurança e auditoria são usados para prevenir abuso e proteger o serviço, com fundamento no legítimo interesse, respeitados necessidade e direitos do titular. Abrir o aplicativo não é considerado consentimento para publicidade ou tratamento não relacionado ao serviço.
 
-Provedores de hospedagem e backup podem tratar dados para operação do serviço. **Antes de publicar:** identificar os provedores contratados, países de armazenamento e salvaguardas aplicáveis. Um servidor nos EUA pode envolver transferência internacional; a localização não foi definida nesta etapa.
+## Fontes de conteúdo e conexões
 
-## Retenção e segurança
+Na LG, a lista M3U e o EPG são obtidos e processados diretamente no aparelho pelo serviço nativo do LC PLAY. A reprodução conecta a TV ao fornecedor da fonte; o servidor do LC PLAY entrega a configuração e autoriza o dispositivo, sem retransmitir os vídeos.
 
-**Antes de publicar:** definir e implementar os prazos para cadastros, dispositivos, códigos, auditoria, contatos de suporte e backups, além de um processo de exclusão. Não há rotina completa de expurgo ou exportação implementada na versão examinada. A retenção deve se limitar às finalidades documentadas e às obrigações aplicáveis.
+O responsável pode solicitar pelo painel um diagnóstico da fonte. Nesse caso, o servidor pode acessar a lista e o EPG para verificar disponibilidade e erros. Não há registro centralizado, no LC PLAY, de cada título assistido.
 
-Usamos controles de acesso, hashes e criptografia para os dados descritos. Esses mecanismos não tornam todos os dados anônimos ou eliminam riscos. HTTPS, proteção de segredos, restauração de backups, armazenamento seguro do token e resposta a incidentes precisam ser validados no ambiente de produção.
+O fornecedor de conteúdo pode receber o IP da sua conexão e credenciais necessárias ao acesso, além de manter seus próprios registros. Ele é responsável por sua política de privacidade. Fontes HTTP não cifram esse tráfego; prefira fontes HTTPS autorizadas.
 
-## Solicitações do titular
+## Infraestrutura e compartilhamento
 
-O contato acima recebe solicitações de confirmação, acesso, correção, informações sobre compartilhamento e, quando aplicável, exclusão, portabilidade, oposição ou revogação de consentimento. A análise deve respeitar os prazos legais e pode exigir identificação proporcional para evitar exposição de dados a terceiros.
+A API e o banco utilizam uma VM da Ascent no Brasil, conforme informação do responsável pela hospedagem. Cloudflare é utilizada para DNS, conexão segura e publicação dos endereços. O suporte utiliza uma caixa de e-mail Gmail, da Google.
 
-Desconectar a TV remove o token local; **não apaga automaticamente cadastros, auditoria ou backups**. Para tratar esses registros, contate o responsável.
+Esses fornecedores podem tratar metadados técnicos ou mensagens em infraestrutura fora do Brasil, conforme seus contratos e políticas. Eventuais transferências internacionais devem observar as hipóteses e garantias exigidas pela LGPD. O LC PLAY não vende dados pessoais. Compartilhamento adicional somente ocorre quando necessário ao serviço, ao atendimento de uma solicitação ou a uma obrigação legal.
 
-## Pendências de aprovação
+## Conservação e segurança
 
-Confirmar identidade legal, contato efetivo, endereço, bases legais por finalidade, tratamento de menores, retenção, fornecedores e procedimento de direitos. Não presumir consentimento só porque o aplicativo foi aberto. Publicar a versão aprovada em URL permanente, acessível também pelo app, e registrar suas revisões.
+Cadastros e vínculos são mantidos enquanto necessários ao dispositivo e ao atendimento. Ao encerrar o uso ou solicitar exclusão, a necessidade de conservar registros é avaliada considerando as finalidades, obrigações legais e exercício de direitos. Códigos vencidos não permitem nova ativação.
 
-Referências para revisão: [LGPD](https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/lei/l13709.htm) e [orientações da ANPD aos titulares](https://www.gov.br/anpd/pt-br/assuntos/titular-de-dados). O inventário acima foi elaborado a partir do código atual do LC PLAY.
+Nesta versão não há expurgo automático completo nem exportação automática de dados. O atendimento a solicitações é manual. Backups e registros de segurança podem permanecer separados do uso normal pelo período necessário às suas finalidades; não prometemos eliminação instantânea de todas as cópias.
+
+São utilizados controle de acesso administrativo, autenticação do aparelho, conexão HTTPS com a API, hashes de senhas e tokens e cifragem de credenciais das fontes no servidor. Esses cuidados não eliminam todos os riscos. Proteja seu aparelho e não compartilhe acessos.
+
+## Seus direitos
+
+Você pode solicitar confirmação de tratamento, acesso, correção, informações sobre compartilhamento e, quando aplicável, anonimização, bloqueio, eliminação, portabilidade, oposição ou revogação de consentimento. Envie o pedido a suportelcplay@gmail.com. Podemos pedir informações proporcionais para confirmar sua identidade e proteger os dados de terceiros.
+
+Desconectar o aparelho encerra a sessão local, mas não equivale à exclusão de dados do servidor. Para desvincular o aparelho ou tratar a exclusão do cadastro, contate o responsável. Não envie senha ou token no pedido. Também é possível procurar a ANPD e os órgãos de defesa do consumidor.
+
+## Menores e atualizações
+
+A ativação e o cadastro devem ser solicitados por pessoa maior de idade ou responsável legal. O controle parental é uma medida adicional, não substitui a supervisão nem autoriza conteúdo ilícito. Não realizamos publicidade direcionada a crianças.
+
+Alterações relevantes nesta política serão identificadas pela data da revisão e disponibilizadas no aplicativo e na página de privacidade.

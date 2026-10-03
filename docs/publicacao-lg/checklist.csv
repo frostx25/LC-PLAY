@@ -1,14 +1,14 @@
 id,area,teste,status,evidencia,proxima_acao
-LG-01,Publicacao,Cadastro Seller Lounge,PENDENTE,Nenhum cadastro realizado,Confirmar modalidade e dados do vendedor
+LG-01,Publicacao,Cadastro Seller Lounge,CONFIRMADO_PELO_USUARIO,Conta existente e login interno em 03/10/2026,Conferir dados e campos do formulario com o proprietario
 LG-02,Publicacao,ID definitivo,PENDENTE,Manifesto com.lcplay.tv,Confirmar antes de publicar
-LG-03,Publicacao,Backend publico HTTPS,BLOQUEADO,Ambiente atual local,Implantar somente com autorizacao
-LG-04,Publicacao,Ativacao para avaliadores,BLOQUEADO,Chave temporaria de uso unico ate 24 horas,Definir fluxo para fila de avaliacao
-LG-05,Publicacao,Textos e preco,PENDENTE,Rascunho loja.md,Revisar e definir modelo comercial
+LG-03,Publicacao,Backend publico HTTPS,VALIDADO_PRODUCAO,API publica por Tunnel e pacote de producao na C1,Manter acesso e repetir com a fonte QA propria
+LG-04,Publicacao,Ativacao para avaliadores,IMPLEMENTADO_LOCAL,OWNER LG QA nova fonte propria e chave de uso unico ate 30 dias com testes,Publicar e provisionar sob autorizacao; testar na TV; monitorar expiracao
+LG-05,Publicacao,Textos e preco,DECISAO_CONFIRMADA,Aplicativo e ativacao gratuitos nesta versao; pessoa fisica Sao Paulo,Revisar descricao final e pais de distribuicao
 LG-06,Publicacao,Icone de loja,PREPARADO_PENDENTE_APROVACAO,PNG 400x400 gerado a partir da marca,Revisar ativo gerado
 LG-07,Publicacao,Splash,IMPLEMENTADO_PENDENTE_TV,PNG 1920x1080 integrado ao manifesto com cor de fundo e teste automatico,Validar carregamento no pacote final na TV
 LG-08,Publicacao,Screenshots finais,PENDENTE,Previews internas 1920x1080 geradas no Edge sem dados reais,Recapturar versao final na TV ou conforme requisito do Seller Lounge
-LG-09,Legal,Politica de privacidade publica,BLOQUEADO,Rascunho privacidade.md,Revisar retencao operadores e local de hospedagem
-LG-10,Legal,Termos e suporte publicos,BLOQUEADO,Rascunho termos.md,Aprovar textos e publicar paginas
+LG-09,Legal,Politica de privacidade publica,PREPARADO_LOCAL,Texto TV e web unificado; operador e Ascent Brasil confirmados,Revisar e publicar com autorizacao; estruturar atendimento manual e retencao
+LG-10,Legal,Termos e suporte publicos,PREPARADO_LOCAL,Leitor offline na ativacao e Ajustes; paginas responsivas; Docker readonly testado,Publicar com autorizacao e repetir na TV
 LG-11,Legal,Contato do responsavel,INFORMADO_PELO_USUARIO,Leonardo Pereira e suportelcplay@gmail.com,Validar recebimento de e-mails
 LG-12,Seguranca,Token no dispositivo,PENDENTE,Token salvo em localStorage,Revisar armazenamento seguro e revogacao
 LG-13,Seguranca,Credenciais de fontes,IMPLEMENTADO_NAO_CERTIFICADO,AES-256-GCM no servidor e hashes para tokens,Auditar pacote logs e configuracao de producao
@@ -17,8 +17,8 @@ LG-15,Privacidade,Excluir e exportar dados,PENDENTE,Desconectar nao apaga client
 LG-16,UX,Ativacao e primeiro uso,PENDENTE,Fluxo existente,Testar fonte QA isolada e chaves invalidas
 LG-17,UX,Setas OK e Back,VALIDADO_TV,Pacote 0.1.0 na C1 em 02/10/2026: setas moveram foco; selecao abriu telas; Back fechou player e retornou ate a Home,Repetir matriz completa com fonte QA no pacote de submissao
 LG-18,UX,Magic Remote ponteiro,PENDENTE,Elementos clicaveis existentes,Validar todas as telas com controle fisico
-LG-19,UX,Back na tela inicial,PENDENTE,Comportamento depende de webOS,Validar criterio da LG nos modelos alvo
-LG-20,Video,Previa com audio,RELATADO_PELO_USUARIO,Usuario confirmou som na LG C1 em 01/10/2026,Repetir com fonte QA e registrar resultado
+LG-19,UX,Back na tela inicial,IMPLEMENTADO_LOCAL,webOS.platformBack na entrada respeita teclado; teste unitario e mock browser,Validar popup fisico na C1 e modelos alvo
+LG-20,Video,Previa com audio,VALIDADO_TV_PRODUCAO,C1 com API publica video readyState 4 paused false muted false; som ja confirmado pelo usuario,Repetir com fonte QA e registrar resultado
 LG-21,Video,Tela cheia sem reinicio,VALIDADO_TV,Pacote 0.1.0 na C1: mesmo video avancou de 21.2 s para 39.5 s entre tela cheia e previa sem pausa ou novo carregamento,Repetir com fonte QA no pacote de submissao
 LG-22,Video,HLS e MP4 da fonte QA,VALIDADO_TV_FONTE_LOCAL,HLS ao vivo e MP4 de filme e episodio reproduziram na C1; fixture QA passou no navegador,Repetir ambos na TV com fonte QA isolada
 LG-23,Video,EPG atual e proximo,VALIDADO_TV_COM_EPG,C1 exibiu programa atual proximo horario e descricao no pacote 0.1.0,Testar tambem uma fonte QA sem EPG

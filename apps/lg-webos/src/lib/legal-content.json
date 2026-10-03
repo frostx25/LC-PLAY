@@ -1,0 +1,155 @@
+{
+  "revision": "2026-10-03",
+  "operator": "Leonardo Pereira",
+  "email": "suportelcplay@gmail.com",
+  "website": "https://lcplay.thxtech.site/legal/",
+  "documents": {
+    "support": {
+      "title": "Suporte LC PLAY",
+      "path": "/legal/",
+      "summary": "Atendimento para ativação, dispositivo e reprodução.",
+      "sections": [
+        {
+          "title": "Responsável e contato",
+          "paragraphs": [
+            "O LC PLAY é operado por Leonardo Pereira, pessoa física em São Paulo, SP, Brasil, sem CNPJ constituído. Atendimento e privacidade: suportelcplay@gmail.com."
+          ]
+        },
+        {
+          "title": "Aplicativo gratuito",
+          "paragraphs": [
+            "Nesta versão, o aplicativo e a ativação do dispositivo são gratuitos. O LC PLAY não vende nem fornece canais, filmes, séries ou assinaturas de conteúdo. Uma eventual cobrança do fornecedor de conteúdo não é uma cobrança do LC PLAY."
+          ]
+        },
+        {
+          "title": "Ativação e fonte",
+          "paragraphs": [
+            "Solicite a ativação ao suporte. O responsável cadastra o dispositivo e vincula uma fonte M3U que você esteja autorizado a utilizar. Digite na TV a chave recebida. A chave é temporária, de uso único e vinculada à plataforma do aparelho.",
+            "O aplicativo não recebe listas inseridas diretamente pelo usuário na TV. Fontes comerciais não acompanham o download do LC PLAY."
+          ]
+        },
+        {
+          "title": "Ajuda com reprodução",
+          "paragraphs": [
+            "Informe o nome do dispositivo, modelo da TV, versão do aplicativo e a mensagem de erro. A disponibilidade do vídeo e do guia EPG depende da fonte, da internet, dos codecs e da TV.",
+            "Não envie senha, token, chave de ativação ou URL privada em mensagens públicas. O suporte não precisa da senha da sua conta LG."
+          ]
+        },
+        {
+          "title": "Privacidade e exclusão",
+          "paragraphs": [
+            "Pedidos de acesso, correção e exclusão de dados podem ser enviados ao mesmo e-mail. Desconectar o aparelho remove a sessão local, mas não exclui automaticamente o cadastro administrativo, a auditoria ou os backups."
+          ]
+        }
+      ]
+    },
+    "privacy": {
+      "title": "Política de Privacidade",
+      "path": "/legal/privacidade",
+      "summary": "Dados utilizados para ativar o aparelho e prestar o serviço.",
+      "sections": [
+        {
+          "title": "Responsável pelo tratamento",
+          "paragraphs": [
+            "Leonardo Pereira, pessoa física em São Paulo, SP, Brasil, sem CNPJ constituído, é o responsável pelo LC PLAY. Para exercer direitos ou esclarecer dúvidas sobre dados: suportelcplay@gmail.com."
+          ]
+        },
+        {
+          "title": "Dados tratados",
+          "paragraphs": [
+            "O cadastro administrativo pode conter nome do dispositivo ou cliente, e-mail, telefone e observações fornecidas ao responsável. O serviço registra plataforma, modelo, versão do sistema e aplicativo, validade, estado de ativação e última conexão.",
+            "Na ativação, a TV transmite seu identificador LGUDID ao servidor. Ele é transformado com HMAC para vincular o aparelho. Esse identificador é pseudonimizado, não anônimo. Chaves de ativação e tokens são armazenados como hashes no banco; credenciais das fontes são cifradas no servidor.",
+            "O aplicativo mantém no aparelho o token de sessão e preferências, incluindo favoritos e controle parental. O catálogo e o guia podem ser armazenados temporariamente no aparelho. O token local permite acesso ao dispositivo e não deve ser compartilhado.",
+            "Registros técnicos e de auditoria podem conter endereço IP, data, responsável pela operação, ação e identificadores de registros. Mensagens de suporte contêm os dados que você decidir enviar. Não solicitamos dados de pagamento nesta versão gratuita."
+          ]
+        },
+        {
+          "title": "Finalidades e bases legais",
+          "paragraphs": [
+            "Os dados necessários à ativação, vínculo de fonte, funcionamento e suporte são tratados para executar o serviço solicitado e os procedimentos relacionados a ele. Obrigações legais podem exigir a conservação de determinados registros.",
+            "Registros mínimos de segurança e auditoria são usados para prevenir abuso e proteger o serviço, com fundamento no legítimo interesse, respeitados necessidade e direitos do titular. Abrir o aplicativo não é considerado consentimento para publicidade ou tratamento não relacionado ao serviço."
+          ]
+        },
+        {
+          "title": "Fontes de conteúdo e conexões",
+          "paragraphs": [
+            "Na LG, a lista M3U e o EPG são obtidos e processados diretamente no aparelho pelo serviço nativo do LC PLAY. A reprodução conecta a TV ao fornecedor da fonte; o servidor do LC PLAY entrega a configuração e autoriza o dispositivo, sem retransmitir os vídeos.",
+            "O responsável pode solicitar pelo painel um diagnóstico da fonte. Nesse caso, o servidor pode acessar a lista e o EPG para verificar disponibilidade e erros. Não há registro centralizado, no LC PLAY, de cada título assistido.",
+            "O fornecedor de conteúdo pode receber o IP da sua conexão e credenciais necessárias ao acesso, além de manter seus próprios registros. Ele é responsável por sua política de privacidade. Fontes HTTP não cifram esse tráfego; prefira fontes HTTPS autorizadas."
+          ]
+        },
+        {
+          "title": "Infraestrutura e compartilhamento",
+          "paragraphs": [
+            "A API e o banco utilizam uma VM da Ascent no Brasil, conforme informação do responsável pela hospedagem. Cloudflare é utilizada para DNS, conexão segura e publicação dos endereços. O suporte utiliza uma caixa de e-mail Gmail, da Google.",
+            "Esses fornecedores podem tratar metadados técnicos ou mensagens em infraestrutura fora do Brasil, conforme seus contratos e políticas. Eventuais transferências internacionais devem observar as hipóteses e garantias exigidas pela LGPD. O LC PLAY não vende dados pessoais. Compartilhamento adicional somente ocorre quando necessário ao serviço, ao atendimento de uma solicitação ou a uma obrigação legal."
+          ]
+        },
+        {
+          "title": "Conservação e segurança",
+          "paragraphs": [
+            "Cadastros e vínculos são mantidos enquanto necessários ao dispositivo e ao atendimento. Ao encerrar o uso ou solicitar exclusão, a necessidade de conservar registros é avaliada considerando as finalidades, obrigações legais e exercício de direitos. Códigos vencidos não permitem nova ativação.",
+            "Nesta versão não há expurgo automático completo nem exportação automática de dados. O atendimento a solicitações é manual. Backups e registros de segurança podem permanecer separados do uso normal pelo período necessário às suas finalidades; não prometemos eliminação instantânea de todas as cópias.",
+            "São utilizados controle de acesso administrativo, autenticação do aparelho, conexão HTTPS com a API, hashes de senhas e tokens e cifragem de credenciais das fontes no servidor. Esses cuidados não eliminam todos os riscos. Proteja seu aparelho e não compartilhe acessos."
+          ]
+        },
+        {
+          "title": "Seus direitos",
+          "paragraphs": [
+            "Você pode solicitar confirmação de tratamento, acesso, correção, informações sobre compartilhamento e, quando aplicável, anonimização, bloqueio, eliminação, portabilidade, oposição ou revogação de consentimento. Envie o pedido a suportelcplay@gmail.com. Podemos pedir informações proporcionais para confirmar sua identidade e proteger os dados de terceiros.",
+            "Desconectar o aparelho encerra a sessão local, mas não equivale à exclusão de dados do servidor. Para desvincular o aparelho ou tratar a exclusão do cadastro, contate o responsável. Não envie senha ou token no pedido. Também é possível procurar a ANPD e os órgãos de defesa do consumidor."
+          ]
+        },
+        {
+          "title": "Menores e atualizações",
+          "paragraphs": [
+            "A ativação e o cadastro devem ser solicitados por pessoa maior de idade ou responsável legal. O controle parental é uma medida adicional, não substitui a supervisão nem autoriza conteúdo ilícito. Não realizamos publicidade direcionada a crianças.",
+            "Alterações relevantes nesta política serão identificadas pela data da revisão e disponibilizadas no aplicativo e na página de privacidade."
+          ]
+        }
+      ]
+    },
+    "terms": {
+      "title": "Termos de Uso",
+      "path": "/legal/termos",
+      "summary": "Condições de uso do player e da ativação gratuita.",
+      "sections": [
+        {
+          "title": "Responsável e gratuidade",
+          "paragraphs": [
+            "O LC PLAY é operado por Leonardo Pereira, pessoa física em São Paulo, SP, Brasil, sem CNPJ constituído. Contato: suportelcplay@gmail.com.",
+            "Nesta versão, o aplicativo e a ativação são gratuitos. Não há cobrança de licença, renovação automática paga ou venda de conteúdo pelo LC PLAY. Qualquer mudança comercial futura deverá ser informada previamente, sem cobrança automática não autorizada."
+          ]
+        },
+        {
+          "title": "O que o LC PLAY faz",
+          "paragraphs": [
+            "O LC PLAY reproduz e organiza fontes M3U autorizadas em TVs compatíveis. O aplicativo não fornece canais, filmes, séries, pacotes de TV ou assinaturas, nem é afiliado aos fornecedores de conteúdo exibidos em fontes de terceiros.",
+            "Nesta versão, o responsável cadastra e vincula a fonte pelo painel. A disponibilidade do catálogo, EPG, imagem e áudio depende da fonte e das condições da conexão e do aparelho. A compatibilidade com todos os modelos, codecs ou fontes não é garantida."
+          ]
+        },
+        {
+          "title": "Ativação e proteção do aparelho",
+          "paragraphs": [
+            "Cada chave de ativação possui prazo, uso único e plataforma definida. Uma vez ativado, o aparelho permanece vinculado até o encerramento, desvinculação, suspensão ou término de validade informado pelo responsável. Para correção de cadastro, troca de TV ou renovação gratuita nesta versão, procure o suporte.",
+            "Não compartilhe chaves, tokens ou credenciais. Categorias identificadas como adultas ficam bloqueadas pelo PIN inicial 0000; altere-o nas configurações. Essa proteção depende da classificação da fonte e não substitui a supervisão de menores."
+          ]
+        },
+        {
+          "title": "Conteúdo autorizado",
+          "paragraphs": [
+            "Utilize apenas conteúdo próprio, público ou para o qual possua autorização. Não utilize o aplicativo para acessar ou distribuir conteúdo ilícito, violar direitos autorais ou contornar DRM, autenticação, limites contratuais ou outras proteções.",
+            "O responsável pode suspender acessos em caso de abuso, violação de direitos ou risco de segurança. Para esclarecimento ou contestação, entre em contato pelo e-mail de suporte."
+          ]
+        },
+        {
+          "title": "Suporte, encerramento e direitos",
+          "paragraphs": [
+            "Problemas de funcionamento, dados ou encerramento do uso podem ser informados a suportelcplay@gmail.com. Desconectar a TV não elimina automaticamente o cadastro do servidor. Consulte a Política de Privacidade para solicitações sobre dados.",
+            "Estes termos não afastam direitos previstos na LGPD, no Código de Defesa do Consumidor ou em outras normas aplicáveis, nem excluem responsabilidade que não possa ser afastada por lei. Alterações relevantes serão comunicadas pela versão dos termos no aplicativo e na página de suporte."
+          ]
+        }
+      ]
+    }
+  }
+}

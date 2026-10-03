@@ -29,7 +29,7 @@ const allowed = new Map([
   }),
 ]);
 
-export function createReviewServer({ baseUrl = 'http://127.0.0.1:4180' } = {}) {
+export function createReviewServer({ baseUrl = 'http://127.0.0.1:4180', publicOnly = false } = {}) {
   const base = normalizeReviewUrl(baseUrl);
   return createServer(async (request, response) => {
     response.setHeader('Access-Control-Allow-Origin', '*');
@@ -37,6 +37,9 @@ export function createReviewServer({ baseUrl = 'http://127.0.0.1:4180' } = {}) {
     response.setHeader('Access-Control-Allow-Headers', 'Range');
     response.setHeader('Access-Control-Expose-Headers', 'Content-Range, Accept-Ranges, Content-Length');
     response.setHeader('X-Content-Type-Options', 'nosniff');
+    response.setHeader('X-Robots-Tag', 'noindex, nofollow');
+    response.setHeader('Referrer-Policy', 'no-referrer');
+    if (publicOnly) response.setHeader('Content-Security-Policy', "default-src 'none'; img-src 'self'; style-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'");
     response.setHeader('Cache-Control', 'no-store');
     const send = (status, body, type = 'text/plain; charset=utf-8') => {
       response.writeHead(status, { 'Content-Type': type, 'Content-Length': Buffer.byteLength(body) });
@@ -45,16 +48,17 @@ export function createReviewServer({ baseUrl = 'http://127.0.0.1:4180' } = {}) {
     if (request.method === 'OPTIONS') { response.writeHead(204); response.end(); return; }
     if (!['GET', 'HEAD'].includes(request.method)) {
       response.setHeader('Allow', 'GET, HEAD, OPTIONS');
-      send(405, 'Read-only local QA fixture.'); return;
+      send(405, 'Read-only resource.'); return;
     }
     try {
       const pathname = new URL(request.url, base).pathname;
       if (pathname === '/') {
+        if (publicOnly) { send(404, 'Not found.'); return; }
         send(200, await readFile(resolve(root, 'docs/publicacao-lg/preview.html'), 'utf8'), 'text/html; charset=utf-8'); return;
       }
       if (pathname === '/playlist.m3u') { send(200, reviewM3u(base), 'application/x-mpegURL; charset=utf-8'); return; }
       if (pathname === '/epg.xml') { send(200, reviewXmltv(), 'application/xml; charset=utf-8'); return; }
-      if (pathname === '/rights.json') { send(200, await readFile(resolve(output, 'rights.json'), 'utf8'), 'application/json; charset=utf-8'); return; }
+      if (!publicOnly && pathname === '/rights.json') { send(200, await readFile(resolve(output, 'rights.json'), 'utf8'), 'application/json; charset=utf-8'); return; }
       const legalPage = legalPages.get(pathname);
       if (legalPage) {
         send(200, await readFile(resolve(root, 'docs/publicacao-lg/public-site', legalPage[0]), 'utf8'), legalPage[1]); return;
@@ -82,6 +86,12 @@ export function createReviewServer({ baseUrl = 'http://127.0.0.1:4180' } = {}) {
       else if (!response.destroyed) response.destroy();
     }
   });
+}
+
+export function createPublicReviewServer({ baseUrl }) {
+  const base = normalizeReviewUrl(baseUrl);
+  if (!base.startsWith('https://')) throw new Error('Public LG review requires HTTPS.');
+  return createReviewServer({ baseUrl: base, publicOnly: true });
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

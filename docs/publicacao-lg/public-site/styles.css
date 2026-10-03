@@ -86,7 +86,7 @@ a:focus-visible { outline: 3px solid var(--text); outline-offset: 4px; }
   font-size: 13px;
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: 0;
 }
 
 h1,
@@ -99,7 +99,7 @@ h2 {
 h1 {
   max-width: 840px;
   margin: 0;
-  font-size: clamp(40px, 6vw, 74px);
+  font-size: 54px;
   line-height: 1.02;
 }
 

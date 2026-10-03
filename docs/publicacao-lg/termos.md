@@ -1,29 +1,33 @@
-# Termos de uso LC PLAY
+# Termos de Uso
 
-**RASCUNHO LOCAL: revisão operacional e jurídica pendente. Não publicado.**
+Proposta para publicação. Revisão 2026-10-03. Texto compartilhado com a TV e as páginas web em `apps/lg-webos/src/lib/legal-content.json`.
 
-Versão de trabalho: 01/10/2026. Responsável informado: **Leonardo Pereira**. Contato: **suportelcplay@gmail.com**. Confirmar identificação legal e endereço antes de publicar.
+## Responsável e gratuidade
 
-## Serviço
+O LC PLAY é operado por Leonardo Pereira, pessoa física em São Paulo, SP, Brasil, sem CNPJ constituído. Contato: suportelcplay@gmail.com.
 
-LC PLAY organiza e reproduz fontes M3U autorizadas em TVs compatíveis. Não inclui catálogo comercial, assinatura de canais ou garantia de acesso a uma plataforma de terceiros. O administrador registra a fonte no painel e a vincula ao dispositivo; a TV é ativada por chave.
+Nesta versão, o aplicativo e a ativação são gratuitos. Não há cobrança de licença, renovação automática paga ou venda de conteúdo pelo LC PLAY. Qualquer mudança comercial futura deverá ser informada previamente, sem cobrança automática não autorizada.
 
-O usuário e o administrador devem possuir as autorizações necessárias para as fontes cadastradas. O aplicativo não concede direitos sobre obras, não contorna DRM e não autoriza acessar conteúdo sem permissão.
+## O que o LC PLAY faz
 
-## Funcionamento
+O LC PLAY reproduz e organiza fontes M3U autorizadas em TVs compatíveis. O aplicativo não fornece canais, filmes, séries, pacotes de TV ou assinaturas, nem é afiliado aos fornecedores de conteúdo exibidos em fontes de terceiros.
 
-Internet e uma fonte acessível são necessárias. Categorias, nomes, capas, episódios e EPG dependem dos dados recebidos. A reprodução depende também do formato, codec, TV e rede. Nesta versão, reprodução Xtream não está disponível; não deve ser anunciada como funcional.
+Nesta versão, o responsável cadastra e vincula a fonte pelo painel. A disponibilidade do catálogo, EPG, imagem e áudio depende da fonte e das condições da conexão e do aparelho. A compatibilidade com todos os modelos, codecs ou fontes não é garantida.
 
-Não compartilhe chaves nem credenciais. Os procedimentos de suspensão, renovação, troca de fonte e suporte devem ser informados de modo claro. Alterações relevantes no serviço devem ser comunicadas; não presumir autorização para cobranças ou renovação automática.
+## Ativação e proteção do aparelho
 
-## Condições comerciais
+Cada chave de ativação possui prazo, uso único e plataforma definida. Uma vez ativado, o aparelho permanece vinculado até o encerramento, desvinculação, suspensão ou término de validade informado pelo responsável. Para correção de cadastro, troca de TV ou renovação gratuita nesta versão, procure o suporte.
 
-**Pendente de definição:** preço da licença, período de uso, eventual teste, contratação, cancelamento e reembolso. Antes de cobrar, informar os valores e condições completos, inclusive se a licença do player é separada de qualquer serviço de conteúdo. Não prometer gratuidade, vitaliciedade ou compatibilidade universal sem condições verificáveis.
+Não compartilhe chaves, tokens ou credenciais. Categorias identificadas como adultas ficam bloqueadas pelo PIN inicial 0000; altere-o nas configurações. Essa proteção depende da classificação da fonte e não substitui a supervisão de menores.
 
-Direitos legais do consumidor permanecem preservados. Quando aplicável à contratação à distância, observar o direito de arrependimento e os meios de atendimento, sem cláusulas de renúncia genérica a direitos. [Código de Defesa do Consumidor](https://www.planalto.gov.br/ccivil_03/leis/l8078compilado.htm).
+## Conteúdo autorizado
 
-## Dados e suporte
+Utilize apenas conteúdo próprio, público ou para o qual possua autorização. Não utilize o aplicativo para acessar ou distribuir conteúdo ilícito, violar direitos autorais ou contornar DRM, autenticação, limites contratuais ou outras proteções.
 
-O tratamento de dados será explicado na [política de privacidade](privacidade.md), cujo texto e endereço público ainda precisam ser aprovados. Desconectar o aparelho não equivale a excluir todos os dados do servidor.
+O responsável pode suspender acessos em caso de abuso, violação de direitos ou risco de segurança. Para esclarecimento ou contestação, entre em contato pelo e-mail de suporte.
 
-Solicitações de funcionamento, contratação e dados: **suportelcplay@gmail.com**. Confirmar recebimento e procedimento de atendimento antes do lançamento. Não enviar senhas, tokens ou URLs privadas em mensagens públicas.
+## Suporte, encerramento e direitos
+
+Problemas de funcionamento, dados ou encerramento do uso podem ser informados a suportelcplay@gmail.com. Desconectar a TV não elimina automaticamente o cadastro do servidor. Consulte a Política de Privacidade para solicitações sobre dados.
+
+Estes termos não afastam direitos previstos na LGPD, no Código de Defesa do Consumidor ou em outras normas aplicáveis, nem excluem responsabilidade que não possa ser afastada por lei. Alterações relevantes serão comunicadas pela versão dos termos no aplicativo e na página de suporte.
