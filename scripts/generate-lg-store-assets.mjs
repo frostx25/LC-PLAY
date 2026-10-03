@@ -17,8 +17,12 @@ await mkdir(assets, { recursive: true });
 
 const mark = await readFile(resolve(root, 'assets/brand/lc-play-mark.svg'));
 const wordmark = await readFile(resolve(root, 'assets/brand/lc-play-wordmark.svg'));
-const markPng = await sharp(mark).resize(400, 400).png().toBuffer();
+const markPng = await sharp(mark).resize(400, 400).flatten({ background: '#ff6656' }).png().toBuffer();
 await writeFile(resolve(assets, 'store-icon-400.png'), markPng);
+if (process.argv.includes('--icon-only')) {
+  console.log('Exported square opaque 400x400 store icon; app artwork and media unchanged.');
+  process.exit(0);
+}
 
 const wordmarkPng = await sharp(wordmark).resize(620, 180, { fit: 'inside' }).png().toBuffer();
 const splashPng = await sharp({ create: { width: 1920, height: 1080, channels: 4, background: '#11151b' } })

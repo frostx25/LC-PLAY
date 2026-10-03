@@ -15,6 +15,7 @@ Suporte e privacidade: **suportelcplay@gmail.com**.
 - [Fonte de demonstração](demonstracao.md): vídeo técnico próprio, M3U e XMLTV dinâmico.
 - [Pendências técnicas e operacionais](pendencias.md): bloqueios para uma submissão responsável.
 - [Roteiro do Seller Lounge](envio-seller-lounge.md): arquivos, decisões confirmadas e verificações antes de enviar.
+- [QA do candidato atual](qa-candidato-2026-10-03.md): hash instalado somente na C1, seguranca, testes fisicos confirmados e limites.
 - [Planilha oficial LG 5.0](../../outputs/019dee99-0d76-7cd3-9686-d07823430ee4/lc-play_self_evaluation_draft_5.0.xlsx): rascunho com evidências dos testes locais na C1 e campos de submissão pendentes.
 
 ## Situação

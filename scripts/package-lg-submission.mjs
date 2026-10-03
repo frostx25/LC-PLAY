@@ -12,7 +12,9 @@ if (!validation.passed) throw new Error('Run pnpm lg:store:verify:support succes
 const files = [
   [`apps/lg-webos/artifacts/production/${manifest.id}_${manifest.version}_all.ipk`, `${manifest.id}_${manifest.version}_all.ipk`],
   ['artifacts/lg-store/assets/store-icon-400.png', 'store-icon-400.png'],
-  ...['loja.md', 'ux-scenario.md', 'checklist.csv', 'pendencias.md', 'privacidade.md', 'termos.md'].map((name) => [`docs/publicacao-lg/${name}`, `documents/${name}`]),
+  ['apps/lg-webos/public/THIRD-PARTY-NOTICES.txt', 'documents/THIRD-PARTY-NOTICES.txt'],
+  ...['loja.md', 'ux-scenario.md', 'checklist.csv', 'pendencias.md', 'privacidade.md', 'termos.md', 'envio-seller-lounge.md', 'qa-candidato-2026-10-03.md'].map((name) => [`docs/publicacao-lg/${name}`, `documents/${name}`]),
+  ['outputs/019dee99-0d76-7cd3-9686-d07823430ee4/lc-play_self_evaluation_draft_5.0.xlsx', 'documents/lc-play_self_evaluation_draft_5.0.xlsx'],
   ...['01-home-browser-preview.png', '02-live-browser-preview.png', '03-movies-browser-preview.png', '04-series-browser-preview.png', '05-settings-browser-preview.png'].map((name) => [`artifacts/lg-store/previews/${name}`, `internal-browser-previews/${name}`]),
 ];
 const hashes = [];
@@ -32,6 +34,7 @@ await writeFile(resolve(output, 'manifest.json'), JSON.stringify({
   version: manifest.version,
   sourceCommit: commit,
   includesUncommittedChanges: dirty,
+  requiredACG: manifest.requiredACG,
   apiOrigin: 'https://api-lcplay.thxtech.site',
   operator: 'Leonardo Pereira',
   support: 'suportelcplay@gmail.com',
@@ -48,7 +51,7 @@ Antes do envio:
 1. Conferir evidencias e disponibilidade HTTPS das paginas e da fonte QA publicadas sob autorizacao exclusiva do LC PLAY.
 2. Conferir provisionamento e validade das chaves QA privadas; testar sem alterar a C1 do proprietario.
 3. Revalidar pacote final na C1: ativacao, MP4/HLS/EPG, Magic Remote, Back, Home, suspensao/retomada e sessao prolongada.
-4. Revisar token local, permissoes, licencas de terceiros e procedimentos manuais de dados/backups.
+4. Conferir QA do token cifrado, permissoes minimas e licencas; nao declarar protecao por hardware ou suporte a TVs nao testadas. Revisar procedimentos de dados/backups.
 5. Concluir UX Scenario e checklist OFICIAIS, revisar metadados e executar envio no Seller Lounge.
 
 Chaves, tokens e senhas NUNCA acompanham este pacote publico. O provisionamento de acesso salva outro arquivo PRIVADO fora desta pasta.

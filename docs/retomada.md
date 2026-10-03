@@ -2,6 +2,39 @@
 
 Estado iniciado em 30/09/2026 e atualizado em 03/10/2026. Repositório: https://github.com/frostx25/LC-PLAY.git.
 
+## Checkpoint autorizado para Git e VM (03/10/2026)
+
+Proprietario autorizou salvar e publicar esta versao no Git e na VM,
+depois interromper para continuar em outra sessao. Sincronizacao em andamento:
+guardar o IPK exato testado na C1 e os materiais de submissao em release
+privado, com backup do LC PLAY. Nenhum envio a LG ou inicio de Roku.
+As mudancas sao do cliente LG, ferramentas, testes e documentos; nao ha
+alteracao de runtime da API, painel ou fonte tecnica que exija restart.
+Preservar todos os containers, ambiente e cadastros, incluindo a C1.
+Registrar o resultado verificado abaixo antes de considerar concluido.
+
+## Rodada local e C1: seguranca e QA (03/10/2026)
+
+Alteracoes preparadas para este checkpoint: token AES-GCM com chave nao exportavel
+por instalacao em IndexedDB, migracao segura; acordo LGUDID antes de nova
+ativacao; duas permissoes ACG; licencas offline; pausa/retomada de video ao
+sair por Home. A instalacao na C1 foi autorizada antes do checkpoint;
+publicacao no Git/VM autorizada posteriormente, na secao acima.
+IPK `0.1.0` SHA-256 `ed3fe7719bdb132aa20dc74863d2069a813be7355fe39c658cfefde984d1ee2e`.
+Ativacao, PIN/favoritos e fonte preservados, relaunch cifrado passou.
+44 testes LG e 10 de publicacao, lint/typecheck, documentos em tres tamanhos
+e teste local de progresso passaram. Progresso/cache nativo passaram na C1.
+Usuario confirmou ponteiro/rolagem, Home sem audio e ativacao/retomada apos
+desligar/ligar; depois confirmou busca/teclado/volume/Mudo e todo o Magic
+Remote funcionando. Relatou quatro horas sem problemas ontem, da versao anterior.
+Fonte propria MP4/HLS/EPG/filmes/serie passou no novo IPK; catalogo real
+restaurado. Checklist oficial atualizado como rascunho, sem N/A indiscriminados.
+Modelo oficial UX Scenario permanece .ppt legado nao preenchido; nenhum
+PowerPoint/LibreOffice instalado para conversao nesta maquina.
+Detalhes e pendencias: `docs/publicacao-lg/qa-candidato-2026-10-03.md`.
+Antes deste checkpoint, VM/Git estavam em `5d92cf9`/release `1c60cf3`.
+Nenhum envio a LG. Chaves privadas nao consumidas.
+
 ## Publicacao autorizada no Git e VM; retomada do QA LG (03/10/2026)
 
 - Commit de codigo `1c60cf3` enviado a `origin/main` sob autorizacao do

@@ -4,19 +4,19 @@ LG-02,Publicacao,ID definitivo,PENDENTE,Manifesto com.lcplay.tv,Confirmar antes 
 LG-03,Publicacao,Backend publico HTTPS,VALIDADO_PRODUCAO,API publica por Tunnel e pacote de producao na C1,Manter acesso e repetir com a fonte QA propria
 LG-04,Publicacao,Ativacao para avaliadores,PROVISIONADO_VALIDADO_API,Cinco chaves privadas preservadas; teste API de corrida uso unico e 30 dias aprovado,Testar ativacao fisica de avaliacao sem desvincular C1; monitorar expiracao
 LG-05,Publicacao,Textos e preco,DECISAO_CONFIRMADA,Aplicativo e ativacao gratuitos nesta versao; pessoa fisica Sao Paulo,Revisar descricao final e pais de distribuicao
-LG-06,Publicacao,Icone de loja,PREPARADO_PENDENTE_APROVACAO,PNG 400x400 gerado a partir da marca,Revisar ativo gerado
+LG-06,Publicacao,Icone de loja,PREPARADO_OPACO_QUADRADO,PNG 400x400 com fundo opaco e cantos externos quadrados; simbolo interno preservado,Confirmar formato e requisitos no upload Seller Lounge
 LG-07,Publicacao,Splash,IMPLEMENTADO_PENDENTE_TV,PNG 1920x1080 integrado ao manifesto com cor de fundo e teste automatico,Validar carregamento no pacote final na TV
 LG-08,Publicacao,Screenshots finais,PENDENTE,Previews internas 1920x1080 geradas no Edge sem dados reais,Recapturar versao final na TV ou conforme requisito do Seller Lounge
 LG-09,Legal,Politica de privacidade publica,PUBLICADO_VALIDADO_HTTPS,Pagina HTTPS e leitor offline aprovados na C1 em 03/10/2026,Revisar juridicamente; estruturar atendimento manual e retencao
 LG-10,Legal,Termos e suporte publicos,PUBLICADO_VALIDADO_TV,Tres leitores offline na C1; paginas HTTPS; Back e foco aprovados; usuario confirmou controle fisico,Revalidar antes do envio e nos demais modelos alvo
 LG-11,Legal,Contato do responsavel,INFORMADO_PELO_USUARIO,Leonardo Pereira e suportelcplay@gmail.com,Validar recebimento de e-mails
-LG-12,Seguranca,Token no dispositivo,PENDENTE,Token salvo em localStorage,Revisar armazenamento seguro e revogacao
+LG-12,Seguranca,Token no dispositivo,VALIDADO_C1_CANDIDATO_LOCAL,AES-GCM com chave por instalacao nao exportavel em IndexedDB; migracao e relaunch passaram preservando ativacao no IPK ed3fe771,Validar outros modelos e revogacao; nao declarar protecao por hardware
 LG-13,Seguranca,Credenciais de fontes,IMPLEMENTADO_NAO_CERTIFICADO,AES-256-GCM no servidor e hashes para tokens,Auditar pacote logs e configuracao de producao
-LG-14,Seguranca,Permissoes ACG,IMPLEMENTADO_NAO_CERTIFICADO,requiredACG no manifesto,Conferir permissao minima e testar modelos novos
+LG-14,Seguranca,Permissoes ACG,MINIMIZADO_VALIDADO_C1,deviceinfo.query e systemconfig.query; getSystemInfo retornou modelo e SDK fisicos,Testar enforcement em webOS recentes antes de declara-los compativeis
 LG-15,Privacidade,Excluir e exportar dados,PENDENTE,Desconectar nao apaga cliente nem auditoria,Implementar procedimento completo e revisar backups
 LG-16,UX,Ativacao e primeiro uso,PENDENTE,Fluxo existente,Testar fonte QA isolada e chaves invalidas
 LG-17,UX,Setas OK e Back,VALIDADO_TV,Pacote 0.1.0 na C1 em 02/10/2026: setas moveram foco; selecao abriu telas; Back fechou player e retornou ate a Home,Repetir matriz completa com fonte QA no pacote de submissao
-LG-18,UX,Magic Remote ponteiro,PENDENTE,Elementos clicaveis existentes,Validar todas as telas com controle fisico
+LG-18,UX,Magic Remote completo,CONFIRMADO_USUARIO_C1,Proprietario confirmou ponteiro clique rolagem e controle inteiro funcionando em 03/10/2026 no candidato local,Validar demais modelos e controles declarados
 LG-19,UX,Back na tela inicial,CONFIRMADO_USUARIO_TV,Usuario confirmou em 03/10/2026 rolagem por setas Back documento para Ajustes e popup de saida na Home da C1,Repetir nos demais modelos alvo; nao generalizar C1
 LG-20,Video,Previa com audio,VALIDADO_TV_PRODUCAO,C1 com API publica video readyState 4 paused false muted false; som ja confirmado pelo usuario,Repetir com fonte QA e registrar resultado
 LG-21,Video,Tela cheia sem reinicio,VALIDADO_TV,Pacote 0.1.0 na C1: mesmo video avancou de 21.2 s para 39.5 s entre tela cheia e previa sem pausa ou novo carregamento,Repetir com fonte QA no pacote de submissao
@@ -26,10 +26,12 @@ LG-24,Video,Filmes e episodios,VALIDADO_TV_QA_PUBLICA,Catalogos de dois filmes e
 LG-25,Resiliencia,Sem rede e reconexao,PARCIAL_VALIDADO_TV,Queda e retorno da API foram validados sem perda de ativacao; rede total ainda nao foi interrompida,Executar teste com rede da TV indisponivel
 LG-26,Resiliencia,API sem resposta,VALIDADO_TV,LG C1 em 02/10/2026: timeout de 15 s abriu a Home preservando token; Atualizar recuperou 306 mil itens e EPG apos retorno da API,Repetir no pacote de submissao com backend publico
 LG-27,Resiliencia,Suspenso vencido e sem fonte,VALIDADO_API_PENDENTE_TV,Teste isolado de producao passou sem alterar C1 nem consumir chaves de avaliacao,Repetir comportamento visual somente em dispositivo QA
-LG-28,Resiliencia,Suspensao e retomada,PARCIAL_VALIDADO_TV,App fechado e reaberto na C1 para QA propria do IPK 599e46de com ativacao preservada,Executar Home standby e retomada de audio; relaunch nao substitui esses testes
-LG-29,Desempenho,Reproducao prolongada,PENDENTE,Teste tecnico curto nao prova estabilidade,Medir memoria CPU e video por sessao longa
+LG-28,Resiliencia,Suspensao e retomada,CONFIRMADO_USUARIO_C1,Proprietario confirmou Home pausando audio e retomada com ativacao valida apos desligar/ligar; relaunch cifrado passou,Validar outros modos de energia e plataformas
+LG-29,Desempenho,Reproducao prolongada,RELATO_4H_VERSAO_ANTERIOR,Proprietario relatou quatro horas continuas sem problemas em 02/10/2026; candidato novo tem QA curto,Medir CPU memoria e reproducao prolongada do candidato atual
 LG-30,Compatibilidade,Outras versoes webOS,PENDENTE,C1 webOS 6.5.3 nao representa todos os modelos,Definir suporte e testar modelos alvo
 LG-31,Conteudo,Direitos da fonte QA,PREPARADO,Padroes visuais e tom sintetico sem midia de terceiros,Revisar assets e fonte antes de submeter
 LG-32,Publicacao,Checklist oficial e UX Scenario,RASCUNHO_OFICIAL_GERADO,Planilha oficial 5.0 preenchida como rascunho em outputs e roteiro bilingue documentado,Transcrever UX Scenario e finalizar resultados apos fonte QA e backend publico
 LG-33,Publicacao,Distribuicao e idioma,CONFIRMADO_PELO_USUARIO,Somente Brasil e portugues brasileiro confirmados em 03/10/2026,Selecionar esse escopo no Seller Lounge; nao declarar outros modelos ou idiomas sem teste
-LG-34,UX,Progresso e cache do catalogo,VALIDADO_TV_E_FIXTURE,IPK 599e46de na C1 mostrou velocidade e tempo decorrido; ETA com tamanho conhecido validado localmente; cache de navegacao preservado,Testar sessao real de seis horas e retomada; nao inventar ETA quando fonte omite tamanho
+LG-34,UX,Progresso e cache do catalogo,VALIDADO_C1_CANDIDATO_LOCAL,IPK ed3fe771 passou importacao real e cache ao alternar filmes/series; ETA conhecido testado localmente,Medir seis horas de cache; nao inventar ETA sem tamanho total
+LG-35,Publicacao,Licencas das bibliotecas,INCLUIDO_VALIDADO_C1,Sete avisos gerados dos arquivos instalados; arquivo e leitor offline no IPK ed3fe771,Atualizar avisos em novos builds e revisar marca e direitos das fontes
+LG-36,UX,Busca teclado volume e Mudo,CONFIRMADO_USUARIO_C1,Proprietario confirmou pesquisa sem resultado limpar teclado somente ao clicar Back foco volume e Mudo em 03/10/2026,Completar inventario do teclado virtual e teclas especiais

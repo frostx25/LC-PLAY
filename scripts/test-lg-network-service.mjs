@@ -3,6 +3,7 @@ import { createDecipheriv, createHash } from 'node:crypto';
 import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
+import { withDeviceSession } from './lg-session-expression.mjs';
 
 const root = resolve(import.meta.dirname, '..');
 process.loadEnvFile(resolve(root, 'apps/api/.env'));
@@ -20,7 +21,9 @@ const reviewMode = process.env.LG_NATIVE_REVIEW === '1';
 const stateMode = process.env.LG_NATIVE_STATE === '1';
 const progressMode = process.env.LG_NATIVE_PROGRESS === '1';
 const timingMode = process.env.LG_PROGRESS_REQUIRE_TIMING === '1';
-const nativeMode = process.env.LG_NATIVE_EPG === '1' || parentalMode || catalogMode || supportMode || reviewMode || stateMode || progressMode;
+const securityMode = process.env.LG_NATIVE_SECURITY === '1';
+const sessionMode = process.env.LG_NATIVE_SESSION === '1';
+const nativeMode = process.env.LG_NATIVE_EPG === '1' || parentalMode || catalogMode || supportMode || reviewMode || stateMode || progressMode || securityMode || sessionMode;
 const appId = nativeMode ? 'com.lcplay.tv' : 'com.lcplay.networktest';
 const device = process.env.LG_TEST_DEVICE || 'lg-c1';
 
@@ -90,7 +93,7 @@ if (!nativeMode) {
 console.log(await ares('package', ['--no-minify', appDir, serviceDir, '--outdir', output]));
 console.log(await ares('install', ['--device', device, resolve(output, `${appId}_0.1.0_all.ipk`)]));
 }
-if (reviewMode) console.log(await ares('launch', ['--close', '--device', device, appId]));
+if (reviewMode || sessionMode) console.log(await ares('launch', ['--close', '--device', device, appId]));
 console.log(await ares('launch', ['--device', device, appId]));
 
 let inspector;
@@ -152,7 +155,7 @@ try {
     });
   };
   async function evaluate(expression) {
-    const result = await command('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true });
+    const result = await command('Runtime.evaluate', { expression: withDeviceSession(expression), awaitPromise: true, returnByValue: true });
     if (result.exceptionDetails) {
       const description = result.exceptionDetails.exception?.description || result.exceptionDetails.text || '';
       const safeMessage = ['Device not activated', 'Guide source unavailable', 'Live catalog unavailable', 'Guide service unavailable'].find((message) => description.includes(message));
@@ -172,14 +175,69 @@ try {
       if (!response.ok) throw new Error('Guide source unavailable');
       var configuration = await response.json();
       var storage = {};
-      Object.keys(localStorage).filter(function (key) { return key.indexOf('lc_play_') === 0; }).sort().forEach(function (key) { storage[key] = localStorage.getItem(key); });
+      Object.keys(localStorage).filter(function (key) { return key.indexOf('lc_play_') === 0 && key !== 'lc_play_device_session_v1' && key !== 'lc_play_device_token'; }).sort().forEach(function (key) { storage[key] = localStorage.getItem(key); });
+      storage.lc_play_device_token = token;
       return { storage: storage, configuration: { device: configuration.device, sourceId: configuration.playlist ? configuration.playlist.id : null } };
     })()`);
     const hash = (value) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
     const storage = Object.fromEntries(Object.entries(state.storage).map(([key, value]) => [key, hash(value)]));
     return { storage, configuration: hash(state.configuration), hasToken: Boolean(state.storage.lc_play_device_token) };
   }
-  if (stateMode) {
+  if (sessionMode) {
+    const before = JSON.parse(await readFile(resolve(output, 'before-progress-install.json'), 'utf8'));
+    const after = await fingerprint();
+    if (JSON.stringify(before) !== JSON.stringify(after)) throw new Error('Activation, preferences or assigned source changed');
+    const session = await evaluate(`(async function () {
+      var raw = localStorage.getItem('lc_play_device_session_v1');
+      if (!raw || localStorage.getItem("lc_play_device_token")) throw new Error('Session migration missing');
+      var database = await new Promise(function (resolve, reject) { var request = indexedDB.open('lc_play_private_storage', 1); request.onsuccess = function () { resolve(request.result); }; request.onerror = reject; });
+      try {
+        var key = await new Promise(function (resolve, reject) { var request = database.transaction('keys').objectStore('keys').get('device-session-v1'); request.onsuccess = function () { resolve(request.result); }; request.onerror = reject; });
+        var denied = false;
+        try { await crypto.subtle.exportKey('raw', key); } catch { denied = true; }
+        return { encrypted: JSON.parse(raw).version === 1, plaintextRemoved: true, extractable: key.extractable, exportDenied: denied, activationPreserved: true, coldRelaunch: true };
+      } finally { database.close(); }
+    })()`);
+    if (session.extractable || !session.exportDenied) throw new Error('Session key export is not protected');
+    const metadata = await evaluate(`new Promise(function (resolve, reject) { webOS.service.request('luna://com.webos.service.tv.systemproperty', { method: 'getSystemInfo', parameters: { keys: ['modelName', 'sdkVersion'] }, onSuccess: function (value) { resolve({ model: value.modelName, sdk: value.sdkVersion }); }, onFailure: function () { reject(new Error('Device metadata permission failed')); } }); })`);
+    results.push({ session, metadata });
+    await writeFile(resolve(output, 'native-session-report.json'), JSON.stringify({ passed: true, session, metadata }, null, 2));
+    console.log(JSON.stringify({ session, metadata }));
+  } else if (securityMode) {
+    const capability = await evaluate(`(async function () {
+      if (!window.crypto || !crypto.subtle || !window.indexedDB) return { available: false };
+      var database = await new Promise(function (resolve, reject) {
+        var request = indexedDB.open('lc_play_security_probe', 1);
+        request.onupgradeneeded = function () { request.result.createObjectStore('keys'); };
+        request.onsuccess = function () { resolve(request.result); };
+        request.onerror = function () { reject(new Error('Probe database unavailable')); };
+      });
+      try {
+        var key = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+        await new Promise(function (resolve, reject) {
+          var transaction = database.transaction('keys', 'readwrite');
+          transaction.objectStore('keys').put(key, 'probe');
+          transaction.oncomplete = resolve; transaction.onerror = reject;
+        });
+        database.close();
+        database = await new Promise(function (resolve, reject) { var request = indexedDB.open('lc_play_security_probe', 1); request.onsuccess = function () { resolve(request.result); }; request.onerror = reject; });
+        var restored = await new Promise(function (resolve, reject) { var request = database.transaction('keys').objectStore('keys').get('probe'); request.onsuccess = function () { resolve(request.result); }; request.onerror = reject; });
+        var iv = crypto.getRandomValues(new Uint8Array(12));
+        var original = new TextEncoder().encode('lc-play-non-secret-security-probe');
+        var ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, restored, original);
+        var decoded = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv }, restored, ciphertext);
+        var exportDenied = false;
+        try { await crypto.subtle.exportKey('raw', restored); } catch { exportDenied = true; }
+        return { available: true, keySurvivesDatabaseReopen: true, extractable: restored.extractable, exportDenied: exportDenied, roundTrip: new TextDecoder().decode(decoded) === 'lc-play-non-secret-security-probe', secureContext: window.isSecureContext };
+      } finally {
+        database.close();
+        await new Promise(function (resolve, reject) { var request = indexedDB.deleteDatabase('lc_play_security_probe'); request.onsuccess = resolve; request.onerror = reject; request.onblocked = reject; });
+      }
+    })()`);
+    if (!capability.available || capability.extractable || !capability.exportDenied || !capability.roundTrip) throw new Error('TV secure-session capability probe failed');
+    results.push(capability);
+    console.log(JSON.stringify({ securityCapability: capability, activationOrSourceModified: false }));
+  } else if (stateMode) {
     if (process.env.LG_NATIVE_TRACE === '1') {
       const trace = await evaluate(`(async function () {
         var response = await fetch('https://api-lcplay.thxtech.site/api/v1/device/media/source', { headers: { Authorization: 'Bearer ' + localStorage.getItem('lc_play_device_token') } });
@@ -312,7 +370,7 @@ try {
     await waitFor("!!document.querySelector('.support-document-actions')");
     await command('Network.emulateNetworkConditions', { offline: true, latency: 0, downloadThroughput: 0, uploadThroughput: 0 });
     const checks = [];
-    for (const label of ['Suporte', 'Privacidade', 'Termos']) {
+    for (const label of ['Suporte', 'Privacidade', 'Termos', 'Licenças']) {
       await evaluate(`(function () { var trigger = Array.from(document.querySelectorAll('.support-document-actions button')).find(function (button) { return button.textContent === ${JSON.stringify(label)}; }); trigger.focus(); trigger.click(); })()`);
       await waitFor("!!document.querySelector('.support-reader')");
       await waitFor("document.activeElement === document.querySelector('.support-reader [aria-label=\"Voltar\"]')", 10000);
@@ -335,7 +393,7 @@ try {
     await evaluate("document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { keyCode: 461, bubbles: true, cancelable: true })); delete window.__lcSupportOriginalToken");
     await waitFor("!!document.querySelector('.menu-settings')");
     results.push({ checks, activationPreserved, nativeExitPopup: 'NOT_TESTED', physicalRemote: 'NOT_TESTED' });
-    console.log('TV support: three offline documents, scrolling, scripted Back, focus and original activation passed. Physical remote and system exit popup remain pending.');
+    console.log('TV support: four offline documents, scrolling, scripted Back, focus and original activation passed. Physical remote and system exit popup remain pending.');
   } else if (reviewMode) {
     console.log('Testing the public owned QA fixture on the C1 with a temporary source response; no production device records are changed.');
     async function waitFor(expression, timeoutMs = 120000) {
@@ -659,11 +717,11 @@ try {
     }
   }
   const report = { testedAt: new Date().toISOString(), device, transport: 'webOS JS service / Node http(s)', providerBrowserRequests, providerGuideBrowserRequests, results };
-  const reportName = stateMode ? 'native-state-report.json' : progressMode ? timingMode ? 'native-download-timing-report.json' : 'native-progress-report.json' : reviewMode ? 'native-review-report.json' : supportMode ? 'native-support-report.json' : catalogMode ? 'native-catalog-report.json' : parentalMode ? 'native-parental-report.json' : nativeMode ? 'native-epg-report.json' : process.env.LG_NETWORK_GUIDE_API === '1' ? 'guide-api-report.json' : process.env.LG_NETWORK_SOURCE_URL ? (process.env.LG_NETWORK_EPG_ONLY === '1' ? 'extra-epg-report.json' : 'extra-source-report.json') : process.env.LG_NETWORK_EPG_ONLY === '1' ? 'epg-retry-report.json' : process.env.LG_NETWORK_FULL_ONLY === '1' ? 'full-report.json' : 'report.json';
+  const reportName = sessionMode ? 'native-session-report.json' : securityMode ? 'native-security-capability.json' : stateMode ? 'native-state-report.json' : progressMode ? timingMode ? 'native-download-timing-report.json' : 'native-progress-report.json' : reviewMode ? 'native-review-report.json' : supportMode ? 'native-support-report.json' : catalogMode ? 'native-catalog-report.json' : parentalMode ? 'native-parental-report.json' : nativeMode ? 'native-epg-report.json' : process.env.LG_NETWORK_GUIDE_API === '1' ? 'guide-api-report.json' : process.env.LG_NETWORK_SOURCE_URL ? (process.env.LG_NETWORK_EPG_ONLY === '1' ? 'extra-epg-report.json' : 'extra-source-report.json') : process.env.LG_NETWORK_EPG_ONLY === '1' ? 'epg-retry-report.json' : process.env.LG_NETWORK_FULL_ONLY === '1' ? 'full-report.json' : 'report.json';
   await writeFile(resolve(output, reportName), JSON.stringify(report, null, 2));
   try {
     const screenshot = await command('Page.captureScreenshot', { format: 'png' }, 10000);
-    const imageName = stateMode ? 'native-state.png' : progressMode ? 'native-progress-restored.png' : reviewMode ? 'native-review-restored.png' : supportMode ? 'native-support.png' : catalogMode ? 'native-catalog.png' : parentalMode ? 'native-parental.png' : nativeMode ? 'native-epg.png' : process.env.LG_NETWORK_SOURCE_URL ? (process.env.LG_NETWORK_EPG_ONLY === '1' ? 'extra-epg.png' : 'extra-source.png') : 'lg-network-service.png';
+    const imageName = sessionMode ? 'native-session.png' : securityMode ? 'native-security.png' : stateMode ? 'native-state.png' : progressMode ? 'native-progress-restored.png' : reviewMode ? 'native-review-restored.png' : supportMode ? 'native-support.png' : catalogMode ? 'native-catalog.png' : parentalMode ? 'native-parental.png' : nativeMode ? 'native-epg.png' : process.env.LG_NETWORK_SOURCE_URL ? (process.env.LG_NETWORK_EPG_ONLY === '1' ? 'extra-epg.png' : 'extra-source.png') : 'lg-network-service.png';
     await writeFile(resolve(output, imageName), Buffer.from(screenshot.data, 'base64'));
   } catch { console.log('TV screenshot unavailable; the network report was saved.'); }
   if ((!nativeMode && providerBrowserRequests.length) || providerGuideBrowserRequests.length) throw new Error('Unexpected browser guide network activity');

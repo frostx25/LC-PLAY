@@ -21,8 +21,14 @@ test("TV usa LGUDID e versão SDK sem gerar identidade de preview", async () => 
     globalThis.window = {
       webOS: {
         platform: { tv: true },
-        deviceInfo(callback) { callback({ modelName: "OLED55C1PSA", sdkVersion: "6.5.3", version: "03.53.45" }); },
+        deviceInfo() { throw new Error("Do not request unrelated audio/input/profile permissions"); },
         service: { request(uri, options) {
+          if (uri === "luna://com.webos.service.tv.systemproperty") {
+            assert.equal(options.method, "getSystemInfo");
+            assert.deepEqual(options.parameters.keys, ["modelName", "sdkVersion"]);
+            options.onSuccess({ modelName: "OLED55C1PSA", sdkVersion: "6.5.3" });
+            return;
+          }
           assert.equal(uri, "luna://com.webos.service.sm");
           assert.equal(options.method, "deviceid/getIDs");
           options.onSuccess({ idList: [{ idType: "LGUDID", idValue: "lg-device-test" }] });

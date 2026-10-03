@@ -24,18 +24,28 @@ registra commit, hash e o aviso de QA final pendente. IPK atual validado na C1:
 
 `com.lcplay.tv_0.1.0_all.ipk`
 
-SHA-256: `599e46def91f51765e58d7cea99ccc86a1977067d4584358e46be30345a045d0`.
+SHA-256: `ed3fe7719bdb132aa20dc74863d2069a813be7355fe39c658cfefde984d1ee2e`.
+
+Esse candidato foi instalado somente na C1; VM e Git continuam na versao
+anterior ate nova autorizacao. Resultados e limites em
+`qa-candidato-2026-10-03.md`.
 
 O icone `store-icon-400.png` acompanha o candidato. As imagens em
 `internal-browser-previews` sao previas internas com fonte mock; nao enviar
 como se fossem capturas fisicas ou prova de certificacao. Conferir os campos
 e os formatos exigidos pela loja antes de preparar screenshots finais.
 
-A planilha em `outputs/019dee99-0d76-7cd3-9686-d07823430ee4/` ainda e um
-rascunho anterior aos ultimos testes. Revisar seus comentarios, resultados
-e itens N/A, especialmente documentos offline e bloqueio parental; nao
-enviar essa planilha como checklist final. Transcrever `ux-scenario.md` ao
-modelo oficial e registrar apenas testes realmente executados.
+A planilha em `outputs/019dee99-0d76-7cd3-9686-d07823430ee4/` foi atualizada
+com os testes do candidato em 03/10/2026. Continua sendo rascunho: campos
+em branco sao pendentes. N/A indiscriminados de conteudo e teclas foram
+retirados. Nao enviar como checklist final. Transcrever `ux-scenario.md`
+ao modelo oficial de apresentacao e concluir os testes aplicaveis.
+
+O modelo baixado `ux_scenario_document_4.3.ppt` e um arquivo legado. O
+roteiro bilingue esta atualizado em Markdown, mas nao foi transcrito para
+esse .ppt: esta maquina nao tem PowerPoint/LibreOffice disponivel para
+conversao. Conferir se o Seller Lounge oferece modelo .pptx atual antes
+de preencher; nao substituir o arquivo oficial por um rascunho sem aviso.
 
 ## Acesso privado de avaliacao
 
@@ -51,7 +61,8 @@ usam o fluxo normal do aplicativo e somente a fonte tecnica propria:
 
 ## Sequencia
 
-1. Revisar armazenamento do token, permissoes ACG e avisos das dependencias.
+1. Conferir registro do candidato: token cifrado e migrado na C1, permissoes
+   minimas e avisos incluidos. Validar outros modelos antes de declara-los.
 2. Completar QA fisico: Magic Remote, teclado, Home/standby/retomada,
    perda total de rede e sessao prolongada. Testar ativacao por chave em
    aparelho QA separado, sem desvincular a C1 do proprietario.

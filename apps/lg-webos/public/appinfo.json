@@ -15,6 +15,6 @@
   "backgroundColor": "#090B10",
   "transparent": false,
   "disableBackHistoryAPI": true,
-  "requiredACG": ["deviceinfo.query", "systemconfig.query", "settings.query", "arc.query", "externalinput.query", "profile.query"]
+  "requiredACG": ["deviceinfo.query", "systemconfig.query"]
 }
 

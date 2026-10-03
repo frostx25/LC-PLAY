@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowLeft, ArrowUp, FileText, LifeBuoy, ShieldCheck } from "lucide-react";
 import content from "../lib/legal-content.json";
+import notices from "../../public/THIRD-PARTY-NOTICES.txt?raw";
 import "./SupportDocuments.css";
 
-type DocumentId = keyof typeof content.documents;
+type DocumentId = keyof typeof content.documents | "licenses";
 const documents: Array<{ id: DocumentId; icon: typeof LifeBuoy; label: string }> = [
   { id: "support", icon: LifeBuoy, label: "Suporte" },
   { id: "privacy", icon: ShieldCheck, label: "Privacidade" },
   { id: "terms", icon: FileText, label: "Termos" },
+  { id: "licenses", icon: FileText, label: "Licenças" },
 ];
 
 export function SupportDocuments({ compact = false }: { compact?: boolean }) {
@@ -27,7 +29,11 @@ export function SupportDocuments({ compact = false }: { compact?: boolean }) {
 function DocumentReader({ id, onClose }: { id: DocumentId; onClose: () => void }) {
   const articleRef = useRef<HTMLElement>(null);
   const backRef = useRef<HTMLButtonElement>(null);
-  const document = content.documents[id];
+  const document = id === "licenses" ? {
+    title: "Licenças de terceiros",
+    summary: "Avisos das bibliotecas distribuídas com o LC PLAY.",
+    sections: [{ title: "Third-Party Notices", paragraphs: [notices] }],
+  } : content.documents[id];
 
   useEffect(() => {
     const previousFocus = window.document.activeElement;
@@ -65,7 +71,7 @@ function DocumentReader({ id, onClose }: { id: DocumentId; onClose: () => void }
         <button data-focusable type="button" onClick={() => scroll(-1)} aria-label="Rolar para cima" title="Rolar para cima"><ArrowUp /></button>
         <button data-focusable type="button" onClick={() => scroll(1)} aria-label="Rolar para baixo" title="Rolar para baixo"><ArrowDown /></button>
       </header>
-      <article ref={articleRef} tabIndex={0} data-focusable className="support-reader-content" aria-label={document.title}
+      <article ref={articleRef} tabIndex={0} data-focusable className={`support-reader-content${id === "licenses" ? " license-content" : ""}`} aria-label={document.title}
         onKeyDown={(event) => {
           if (event.key === "ArrowUp" || event.key === "ArrowDown") {
             event.preventDefault();

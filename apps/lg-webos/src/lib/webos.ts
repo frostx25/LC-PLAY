@@ -51,11 +51,12 @@ export async function getLgDeviceIdentity(): Promise<{
   }
 
   const deviceInfo = await new Promise<Record<string, unknown>>((resolve) => {
-    if (!window.webOS?.deviceInfo) return resolve({});
     const timeout = setTimeout(() => resolve({}), 5_000);
-    window.webOS.deviceInfo((info) => {
-      clearTimeout(timeout);
-      resolve(info);
+    window.webOS?.service?.request("luna://com.webos.service.tv.systemproperty", {
+      method: "getSystemInfo",
+      parameters: { keys: ["modelName", "sdkVersion"] },
+      onSuccess: (info) => { clearTimeout(timeout); resolve(info as Record<string, unknown>); },
+      onFailure: () => { clearTimeout(timeout); resolve({}); },
     });
   });
 

@@ -2,6 +2,16 @@
 
 Revisão iniciada em 01/10/2026 e atualizada com testes do pacote de produção na C1 em 03/10/2026.
 
+## Candidato local mais recente
+
+O pacote `ed3fe771...` foi instalado sem desinstalar a C1, sob autorizacao.
+[Registro desta rodada](qa-candidato-2026-10-03.md): sessao cifrada migrada
+sem perder ativacao, relaunch, duas permissoes ACG e quatro documentos offline.
+Proprietario confirmou Magic Remote/rolagem, Home sem audio residual e
+ativacao/retomada apos desligar/ligar. Relatou quatro horas estaveis ontem
+na versao anterior. Este candidato NAO foi enviado a VM/Git ou Seller Lounge;
+as secoes de producao abaixo descrevem os releases anteriores.
+
 ## Concluido em producao
 
 - Codigo `1c60cf3` e IPK fisico `599e46de...` sincronizados na VM sob autorizacao e enviados ao Git. Backup privado `lg-release-1c60cf3-20261003T171700Z`; ambiente, registros de aparelhos/fontes e IDs de todos os containers iguais antes/depois, sem rebuild ou restart. API/painel e 18 checks publicos aprovados. Repetidos documentos offline e fonte propria MP4/HLS/EPG/filmes/episodios na C1; catalogo original restaurado. Distribuicao inicial somente Brasil e portugues brasileiro confirmada. Nenhuma submissao LG.
@@ -23,18 +33,18 @@ Revisão iniciada em 01/10/2026 e atualizada com testes do pacote de produção 
 
 ## Revisão técnica
 
-- **Token local:** `apps/lg-webos/src/App.tsx` persiste token em `localStorage`. Revisar armazenamento seguro suportado pelas TVs alvo, validade e revogação; criptografar com chave fixa dentro do bundle não resolve o risco.
+- **Token local:** candidato local usa AES-GCM, nonce aleatorio e chave por instalacao nao exportavel no IndexedDB; localStorage guarda ciphertext. Migracao e relaunch passaram na C1 sem perda da ativacao. Nao e protecao por hardware ou contra codigo malicioso do proprio app. Expiracao/revogacao e outros modelos continuam exigindo testes.
 - **Falha de configuração:** validada na LG C1 em 02/10/2026. Somente `401/403` remove a ativação; com a API indisponível, o limite de 15 segundos abriu a tela inicial, preservou o token e mostrou nova tentativa. Após a API local retornar, `Atualizar` recuperou 306 mil itens e o EPG sem reinstalar ou reativar. Repetir no pacote de submissão apontando para o backend público.
 - **Heartbeat:** rejeições agora são tratadas; `401/403` encerra a sessão e falhas transitórias mantêm o aparelho ativado com aviso. Revalidar reconexão na TV.
 - **Desconectar versus excluir:** só remove o token local. Há exclusão administrativa de aparelho, mas isso não implementa exclusão/exportação completa do cliente e das cópias de backup. Definir procedimento verificável.
-- **ACG:** o manifesto já declara permissões. Confirmar quais grupos são necessários para os métodos realmente chamados e validar em plataforma com enforcement; C1 não cobre modelos recentes.
-- **Back, Home e retomada:** Back na entrada delega ao sistema LG com `webOS.platformBack()`, sem disparar enquanto o teclado está aberto. Usuario confirmou o popup fisico na Home da C1 e Back dos documentos para Ajustes em 03/10/2026. Suspensão, relaunch, áudio e retomada continuam pendentes em cada plataforma declarada.
+- **ACG:** candidato reduzido a `deviceinfo.query` (LGUDID) e `systemconfig.query` (modelo/SDK), sem usar o wrapper que consulta audio, entradas e perfil. Modelo/SDK validado fisicamente na C1; falta plataforma recente com enforcement.
+- **Back, Home e retomada:** Back delega ao sistema LG sem disparar enquanto o teclado esta aberto. Usuario confirmou popup e Back dos documentos e, nesta rodada, Magic Remote/rolagem, Home pausando audio e ativacao/retomada apos desligar/ligar a C1. Outros modelos e modos de energia permanecem sem teste.
 - **Splash:** candidato 1920 × 1080 integrado localmente ao manifesto com `iconColor`, resolução e descrição. Validar a abertura do pacote final na TV antes da submissão.
 - **Versão:** padronizada em `0.1.0` no manifesto, pacote LG e interface, com teste automático contra divergência. Incrementar antes de cada submissão posterior.
 - **Proteção por PIN:** bloqueio efetivo validado na C1 com o pacote de producao; revisar persistencia do PIN, reset e comportamento em outros modelos declarados.
 - **M3U versus Xtream:** o painel cadastra Xtream, porém o catálogo LG rejeita reprodução Xtream. Textos desta versão anunciam somente M3U.
 - **Catálogos e sessões longas:** importacao real na C1 validada com 305.954 itens (aproximadamente 66 segundos e 243 MiB de pico RSS do servico). Navegacao, episodios e reproducao passaram; ainda medir CPU e estabilidade por varias horas, suspensao/retomada e outros modelos. Esse teste nao confirma estabilidade prolongada.
-- **Licenças e marca:** conferir avisos das dependências distribuídas, fontes, marca LC PLAY e assets; não reutilizar marca, posters ou imagens de outro player.
+- **Licencas e marca:** avisos das sete bibliotecas distribuidas acompanham o IPK e leitor offline Licencas, com teste de build. Titularidade da marca e direitos de quaisquer fontes externas ainda precisam de confirmacao; nao reutilizar assets de outro player.
 
 ## Operação e revisão
 

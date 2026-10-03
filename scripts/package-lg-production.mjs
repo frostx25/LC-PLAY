@@ -19,6 +19,7 @@ async function run(command, args, cwd) {
   });
 }
 await run(process.execPath, [resolve(root, 'scripts/build-lg-service.mjs')], root);
+await run(process.execPath, [resolve(root, 'scripts/generate-lg-notices.mjs')], root);
 const compiler = createRequire(resolve(app, 'package.json'));
 await run(process.execPath, [compiler.resolve('typescript/bin/tsc'), '-b'], app);
 const vite = resolve(dirname(compiler.resolve('vite/package.json')), 'bin/vite.js');

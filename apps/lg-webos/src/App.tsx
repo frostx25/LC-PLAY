@@ -35,6 +35,8 @@ import {
   Wifi,
 } from "lucide-react";
 import { isAuthenticationFailure, request } from "./lib/device-api";
+import { clearDeviceToken, getDeviceToken, prepareDeviceSession, restoreDeviceSession, saveDeviceToken } from "./lib/device-session";
+import { attachPlaybackLifecycle } from "./lib/playback-lifecycle";
 import { APP_VERSION } from "./lib/release";
 import { SearchField } from "./components/SearchField";
 import { SupportDocuments } from "./components/SupportDocuments";
@@ -76,14 +78,15 @@ type SeriesCollection = {
   episodeCount: number;
 };
 
-const TOKEN_KEY = "lc_play_device_token";
 const clockFormatter = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
 function App() {
   const demo = import.meta.env.DEV && new URLSearchParams(window.location.search).has("demo");
   const [mode, setMode] = useState<Mode>(() =>
-    demo ? "home" : localStorage.getItem(TOKEN_KEY) ? "loading" : "activation",
+    demo ? "home" : "loading",
   );
+  const [sessionAttempt, setSessionAttempt] = useState(0);
+  const [sessionError, setSessionError] = useState("");
   const [configuration, setConfiguration] = useState<Configuration | null>(null);
   const [catalog, setCatalog] = useState<DeviceCatalog | null>(() => demo ? createDemoCatalog() : null);
   const [catalogLoading, setCatalogLoading] = useState(!demo);
@@ -95,7 +98,7 @@ function App() {
   const catalogRequestRef = useRef<AbortController | null>(null);
   const catalogCacheRef = useRef(new Map<CatalogKind, { catalog: DeviceCatalog; expiresAt: number }>());
 
-  useSpatialNavigation(mode !== "loading");
+  useSpatialNavigation(mode !== "loading" || Boolean(sessionError));
 
   useEffect(() => {
     if (mode === "home") return;
@@ -115,7 +118,7 @@ function App() {
     clearNativeCatalog();
     loadedKindRef.current = null;
     kindRef.current = "LIVE";
-    localStorage.removeItem(TOKEN_KEY);
+    clearDeviceToken();
     setConfiguration(null);
     setCatalog(null);
     setCatalogLoading(false);
@@ -132,7 +135,7 @@ function App() {
       setCatalogError("");
       return;
     }
-    const token = localStorage.getItem(TOKEN_KEY);
+    const token = getDeviceToken();
     if (!token) return;
     if (options.background && catalogRequestRef.current) return;
     catalogRequestRef.current?.abort();
@@ -197,7 +200,7 @@ function App() {
 
   const refreshAll = useCallback(async () => {
     if (demo) return loadCatalog();
-    const token = localStorage.getItem(TOKEN_KEY);
+    const token = getDeviceToken();
     if (!token) return;
     setCatalogLoading(true);
     setCatalogProgress({ stage: "source", kind: kindRef.current });
@@ -237,10 +240,13 @@ function App() {
 
   useEffect(() => {
     if (demo) return;
-    const token = localStorage.getItem(TOKEN_KEY);
-    if (!token) return;
-    request<Configuration>("v1/device/configuration", undefined, token, undefined, 15_000)
+    let cancelled = false;
+    restoreDeviceSession().then(async (token) => {
+      if (cancelled) return;
+      if (!token) { setMode("activation"); setCatalogLoading(false); return; }
+      return request<Configuration>("v1/device/configuration", undefined, token, undefined, 15_000)
       .then((data) => {
+        if (cancelled) return;
         setConfiguration(data);
         setConnectionError("");
         if (!data.playlist) {
@@ -252,6 +258,7 @@ function App() {
         setMode("home");
       })
       .catch((caught: unknown) => {
+        if (cancelled) return;
         if (isAuthenticationFailure(caught)) {
           clearDeviceSession();
           return;
@@ -260,13 +267,16 @@ function App() {
         setCatalogError(caught instanceof Error ? caught.message : "Não foi possível conectar ao serviço.");
         setMode("home");
       });
-  }, [clearDeviceSession, demo, loadCatalog]);
+    }).catch(() => { if (!cancelled) setSessionError("Não foi possível abrir a sessão protegida. Tente novamente."); });
+    return () => { cancelled = true; };
+  }, [clearDeviceSession, demo, loadCatalog, sessionAttempt]);
 
   useEffect(() => {
     if (mode !== "home" || demo) return;
-    const token = localStorage.getItem(TOKEN_KEY);
+    const token = getDeviceToken();
     if (!token) return;
     const heartbeat = () => {
+      if (document.hidden) return;
       void request(
         "v1/device/heartbeat",
         { method: "POST", body: JSON.stringify({ appVersion: APP_VERSION }) },
@@ -279,6 +289,13 @@ function App() {
       });
     };
     heartbeat();
+    const resume = () => {
+      if (!document.hidden) {
+        heartbeat();
+        void loadCatalog(kindRef.current, { background: true });
+      }
+    };
+    document.addEventListener("visibilitychange", resume);
     const heartbeatTimer = window.setInterval(heartbeat, 120_000);
     const catalogTimer = window.setInterval(() => {
       if (!document.hidden) void loadCatalog(kindRef.current, { background: true });
@@ -286,25 +303,23 @@ function App() {
     return () => {
       window.clearInterval(heartbeatTimer);
       window.clearInterval(catalogTimer);
+      document.removeEventListener("visibilitychange", resume);
     };
   }, [clearDeviceSession, demo, loadCatalog, mode]);
 
-  if (mode === "loading") return <BootScreen />;
+  if (mode === "loading") return <BootScreen error={sessionError} onRetry={() => { setSessionError(""); setSessionAttempt((value) => value + 1); }} />;
   if (mode === "activation") {
     return (
       <ActivationScreen
-        onActivated={(data, token) => {
+        onActivated={async (token) => {
+          await saveDeviceToken(token);
           catalogCacheRef.current.clear();
           loadedKindRef.current = null;
-          localStorage.setItem(TOKEN_KEY, token);
-          setConfiguration(data);
-          if (!data.playlist) {
-            setCatalogLoading(false);
-            setCatalogError("Nenhuma fonte está vinculada a este dispositivo.");
-          } else {
-            void loadCatalog();
-          }
-          setMode("home");
+          setConfiguration(null);
+          setSessionError("");
+          setCatalogLoading(true);
+          setMode("loading");
+          setSessionAttempt((value) => value + 1);
         }}
         onDemo={import.meta.env.DEV ? () => {
           setCatalog(createDemoCatalog());
@@ -339,11 +354,11 @@ function Brand() {
   );
 }
 
-function BootScreen() {
+function BootScreen({ error, onRetry }: { error?: string; onRetry?: () => void }) {
   return (
     <main className="boot-screen">
       <Brand />
-      <LoaderCircle className="spin" size={38} />
+      {error ? <><p className="tv-error" role="alert">{error}</p><button data-focusable className="tv-primary" onClick={onRetry}><RefreshCw />Tentar novamente</button><SupportDocuments compact /></> : <LoaderCircle className="spin" size={38} />}
     </main>
   );
 }
@@ -352,12 +367,13 @@ function ActivationScreen({
   onActivated,
   onDemo,
 }: {
-  onActivated: (configuration: Configuration, token: string) => void;
+  onActivated: (token: string) => Promise<void>;
   onDemo?: () => void;
 }) {
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [identityAgreed, setIdentityAgreed] = useState(false);
 
   const formattedCode = useMemo(() => {
     const normalized = code.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 12);
@@ -369,6 +385,8 @@ function ActivationScreen({
     setLoading(true);
     setError("");
     try {
+      if (!identityAgreed) throw new Error("Confirme o uso do identificador para ativar este aparelho.");
+      await prepareDeviceSession();
       const identity = await getLgDeviceIdentity();
       const response = await request<{ deviceToken: string }>("v1/device/activate", {
         method: "POST",
@@ -381,14 +399,7 @@ function ActivationScreen({
           appVersion: APP_VERSION,
         }),
       }, undefined, undefined, 20_000);
-      const nextConfiguration = await request<Configuration>(
-        "v1/device/configuration",
-        undefined,
-        response.deviceToken,
-        undefined,
-        15_000,
-      );
-      onActivated(nextConfiguration, response.deviceToken);
+      await onActivated(response.deviceToken);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Falha na ativação.");
     } finally {
@@ -418,8 +429,9 @@ function ActivationScreen({
             placeholder="XXXX-XXXX-XXXX"
             maxLength={14}
           />
+          <label className="activation-identity-consent"><input data-focusable type="checkbox" checked={identityAgreed} onChange={(event) => setIdentityAgreed(event.target.checked)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); setIdentityAgreed((value) => !value); } }} />Autorizo o uso do identificador LGUDID para vincular e ativar esta TV, conforme a Política de Privacidade.</label>
           {error ? <p className="tv-error" role="alert">{error}</p> : null}
-          <button data-focusable type="submit" className="tv-primary" disabled={loading || formattedCode.length < 14}>
+          <button data-focusable type="submit" className="tv-primary" disabled={loading || !identityAgreed || formattedCode.length < 14}>
             {loading ? <LoaderCircle className="spin" /> : <Check />}
             {loading ? "Ativando" : "Ativar LC PLAY"}
           </button>
@@ -743,7 +755,7 @@ function LiveTvScreen({
     if (demo || !selected || !catalog || !nativeGuideSupported()) return;
     const currentTime = Date.now();
     if (selected.now && selected.next && Date.parse(selected.now.endsAt) > currentTime && Date.parse(selected.next.endsAt) > currentTime) return;
-    const token = localStorage.getItem(TOKEN_KEY);
+    const token = getDeviceToken();
     if (!token) return;
     const controller = new AbortController();
     const timer = setTimeout(() => {
@@ -1122,7 +1134,7 @@ function SeriesDetails({
   useEffect(() => {
     if (series.episodes.length) return;
     const controller = new AbortController();
-    const token = localStorage.getItem(TOKEN_KEY) ?? "";
+    const token = getDeviceToken() ?? "";
     const operation = catalog?.nativeCatalogId && catalog.nativeRevision
       ? loadNativeEpisodes(catalog.nativeCatalogId, catalog.nativeRevision, catalog.source.id, series.id, token, controller.signal, setEpisodeProgress, series.episodeCount)
       : request<CatalogItem[]>(`v1/device/catalog/series/${encodeURIComponent(series.id)}`, { signal: controller.signal }, token, undefined, 115_000);
@@ -1300,6 +1312,10 @@ function StreamVideo({ item, controls = false }: { item: CatalogItem; controls?:
     let mediaRetries = 0;
     let lastTime = 0;
     let lastProgress = Date.now();
+    const detachLifecycle = attachPlaybackLifecycle(video, document, window, {
+      suspend: () => { window.clearTimeout(retryTimer); retryTimer = undefined; stopLoading?.(); },
+      resume: () => { lastProgress = Date.now(); recoverNetwork?.(); },
+    });
     let receivedVideo = false;
     let started = false;
     let terminal = false;
@@ -1315,14 +1331,14 @@ function StreamVideo({ item, controls = false }: { item: CatalogItem; controls?:
       setStatus(message);
     };
     const reconnect = () => {
-      if (disposed || terminal || retryTimer !== undefined) return;
+      if (disposed || terminal || document.hidden || retryTimer !== undefined) return;
       if (retries >= 2) return fail("A transmissão continua sem responder. Tente novamente ou escolha outra versão do canal.");
       retries += 1;
       setStatus("Reconectando transmissão...");
       lastProgress = Date.now();
       retryTimer = window.setTimeout(() => {
         retryTimer = undefined;
-        if (disposed || terminal) return;
+        if (disposed || terminal || document.hidden) return;
         if (recoverNetwork) recoverNetwork();
         else { video.load(); void video.play().catch(() => undefined); }
       }, 1000);
@@ -1366,7 +1382,7 @@ function StreamVideo({ item, controls = false }: { item: CatalogItem; controls?:
       const isHls = /\.m3u8(?:\?|$)/i.test(item.streamUrl);
       if (!isHls || video.canPlayType("application/vnd.apple.mpegurl")) {
         video.src = item.streamUrl;
-        await video.play().catch(() => undefined);
+        if (!document.hidden) await video.play().catch(() => undefined);
         return;
       }
       const { default: Hls } = await import("hls.js");
@@ -1387,7 +1403,7 @@ function StreamVideo({ item, controls = false }: { item: CatalogItem; controls?:
       });
       destroyHls = () => hls.destroy();
       stopLoading = () => hls.stopLoad();
-      recoverNetwork = () => { hls.startLoad(-1); void video.play().catch(() => undefined); };
+      recoverNetwork = () => { if (!document.hidden) { hls.startLoad(-1); void video.play().catch(() => undefined); } };
       recoverMedia = () => hls.recoverMediaError();
       hls.on(Hls.Events.ERROR, (_event, data) => {
         if (import.meta.env.DEV) console.warn("[LC PLAY] reprodução", { type: data.type, details: data.details, fatal: data.fatal, status: data.response?.code });
@@ -1404,12 +1420,14 @@ function StreamVideo({ item, controls = false }: { item: CatalogItem; controls?:
       });
       hls.loadSource(item.streamUrl);
       hls.attachMedia(video);
-      await video.play().catch(() => undefined);
+      if (document.hidden) hls.stopLoad();
+      else await video.play().catch(() => undefined);
     }
 
     void start().catch(() => fail("Não foi possível iniciar a transmissão. Tente novamente."));
     return () => {
       disposed = true;
+      detachLifecycle();
       video.removeEventListener("error", handleVideoError);
       video.removeEventListener("timeupdate", handleProgress);
       video.removeEventListener("waiting", handleWaiting);
@@ -1423,7 +1441,7 @@ function StreamVideo({ item, controls = false }: { item: CatalogItem; controls?:
   }, [item.streamUrl, item.name, attempt]);
 
   return <>
-    <video ref={videoRef} autoPlay controls={controls} muted={false} playsInline />
+    <video ref={videoRef} controls={controls} muted={false} playsInline />
     {status ? <div className={`stream-status ${failed ? "is-error" : ""}`} role="status"><p>{status}</p>{failed ? <button data-focusable onClick={() => setAttempt((current) => current + 1)}>Tentar novamente</button> : null}</div> : null}
   </>;
 }

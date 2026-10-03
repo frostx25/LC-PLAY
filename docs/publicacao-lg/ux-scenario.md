@@ -22,6 +22,7 @@ Não inserir neste roteiro público senha administrativa, token de dispositivo, 
 | Primeiro uso | Abrir sem ativação | Tela de ativação, sem lista pré-carregada |
 | Chave inválida | Informar valor inválido e ativar | Erro compreensível; permitir correção |
 | Ativação | Usar chave LG válida para dispositivo QA | Identificar a TV e exibir menu principal |
+| Identificação | Confirmar uso do LGUDID antes de ativar | Sem concordância não consultar LGUDID nem enviar ativação |
 | Menu | Navegar por setas, OK e cursor | Foco visível e opções selecionáveis |
 | TV ao vivo | Abrir categoria e selecionar canal | Lista, prévia e EPG, quando disponível |
 | Prévia | Selecionar primeiro canal técnico | Vídeo com áudio; fonte QA usa clipe, não emissão ao vivo |
@@ -32,7 +33,8 @@ Não inserir neste roteiro público senha administrativa, token de dispositivo, 
 | Filmes | Abrir um filme técnico | Grade e reprodução; Back retorna ao catálogo |
 | Séries | Abrir a série técnica e um episódio | Título, temporada, episódios e reprodução |
 | Configurações | Abrir conta/dispositivo | Exibir fonte, validade e informações disponíveis |
-| Suporte e documentos | Abrir Privacidade ou Termos na ativação e em Ajustes | Leitura no app sem internet; rolagem por setas/ponteiro; Back restaura a tela e o foco |
+| Suporte e documentos | Abrir Suporte, Privacidade, Termos ou Licenças na ativação e em Ajustes | Leitura no app sem internet; rolagem por setas/ponteiro; Back restaura a tela e o foco |
+| Controle parental | Tentar grupo classificado adulto | PIN padrão 0000; incorreto não libera; pode alterar em Ajustes. Não acompanha mídia adulta nem autoriza conteúdo proibido |
 | Recarregar | Usar Recarregar/Atualizar conteúdo | Atualizar configuração e seção, preservando fonte autorizada |
 | Desconectar | Usar Desconectar aparelho | Remover token local e voltar à ativação; não é exclusão de dados no servidor |
 | Fonte ausente | Testar dispositivo QA sem fonte | Mensagem adequada, sem catálogo de terceiros |
@@ -48,7 +50,9 @@ The interface is currently in Brazilian Portuguese. Main menu labels: **TV ao vi
 
 Use a QA activation code supplied privately with the submission; use a separate code for each TV. Codes are single-use and valid for up to 30 days from issue. The same production activation flow is used, without a hidden review mode or a bypass. After activating, the device session is separate from the code's expiry. If all codes are consumed, expire or installation data is cleared, contact support for a new isolated code. Never use production customer credentials or an admin account. Public services and five isolated reviewer codes are provisioned; QA media playback passed on the C1 through a temporary test-source response, while physical activation with a reviewer code on a separate TV remains pending. Reviewers do not receive SSH, dashboard administrator or database access. Do not submit this draft as completed QA.
 
-The application and activation are free in this version. **Suporte e documentos** provides offline support, privacy and terms. Use Back to close a document without leaving Settings. At the app entry screen, Back delegates to the LG system (exit confirmation on webOS 6+, Home launcher on older supported systems); physical validation remains required.
+The application and activation are free in this version. Before activating a new TV, check the agreement for use of its LGUDID identifier. The identifier is not requested until agreement and activation. **Suporte e documentos** provides offline support, privacy, terms and third-party licenses. Use Back to close a document without leaving Settings. At the app entry screen, Back delegates to the LG system. The C1 owner confirmed the exit popup, pointer, scrolling, Home audio suspension and power-cycle activation recovery on 2026-10-03; other target models remain untested.
+
+Groups classified as adult require a parental PIN across Live TV, movies and series. The default PIN is **0000**, and the owner can change it in Settings. A wrong PIN does not unlock content. No adult media is bundled or included in the technical QA source. This control does not authorize prohibited content, and final content/age-rating declarations remain required.
 
 For Live TV, select a channel once to start the preview with sound. Select the same channel again to enlarge it. Press Back to return to the guide. Movie and series items use the same authorized technical test clip; channel programmes are synthetic XMLTV entries for guide testing, not broadcast schedules. The QA clip contains generated colour patterns, a moving marker and a quiet test tone. Start at low TV volume.
 

@@ -6,6 +6,14 @@ import sharp from 'sharp';
 import { createPublicReviewServer, createReviewServer } from '../lg-review-server.mjs';
 import { normalizeReviewUrl, parseByteRange, reviewCatalog, reviewItems, reviewM3u, reviewProgrammes, reviewXmltv } from '../lg-review-fixture.mjs';
 
+test('LG package declares only identity and model permissions and carries distributed library licenses', async () => {
+  const info = JSON.parse(await readFile(new URL('../../apps/lg-webos/public/appinfo.json', import.meta.url), 'utf8'));
+  assert.deepEqual(info.requiredACG, ['deviceinfo.query', 'systemconfig.query']);
+  const notices = await readFile(new URL('../../apps/lg-webos/public/THIRD-PARTY-NOTICES.txt', import.meta.url), 'utf8');
+  for (const library of ['react 19', 'react-dom 19', 'scheduler 0.', 'hls.js 1.', 'lucide-react 1.', 'sax 1.', 'webOSTV.js 1.2.13']) assert.ok(notices.includes(library));
+  for (const text of ['MIT License', 'Apache License', 'Copyright']) assert.ok(notices.includes(text));
+});
+
 test('review fixture contains unique URLs and only technical content', () => {
   const m3u = reviewM3u('http://127.0.0.1:4180');
   const urls = m3u.split('\n').filter((line) => line.startsWith('http'));
