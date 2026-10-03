@@ -5,13 +5,32 @@ Estado iniciado em 30/09/2026 e atualizado em 03/10/2026. Repositório: https://
 ## Checkpoint autorizado para Git e VM (03/10/2026)
 
 Proprietario autorizou salvar e publicar esta versao no Git e na VM,
-depois interromper para continuar em outra sessao. Sincronizacao em andamento:
-guardar o IPK exato testado na C1 e os materiais de submissao em release
-privado, com backup do LC PLAY. Nenhum envio a LG ou inicio de Roku.
-As mudancas sao do cliente LG, ferramentas, testes e documentos; nao ha
-alteracao de runtime da API, painel ou fonte tecnica que exija restart.
-Preservar todos os containers, ambiente e cadastros, incluindo a C1.
-Registrar o resultado verificado abaixo antes de considerar concluido.
+depois interromper para continuar em outra sessao. Codigo `164ca83` enviado
+a `origin/main` e sincronizado em `/opt/lc-play`, comparado ao arquivo Git.
+IPK exato testado na C1, icone, planilha e kit de submissao preservados
+privadamente em `/opt/lc-play/releases/164ca83/`, sem chaves de avaliacao.
+SHA-256 do IPK: `ed3fe7719bdb132aa20dc74863d2069a813be7355fe39c658cfefde984d1ee2e`.
+Backup de banco, codigo e ambiente:
+`/opt/lc-play/backups/lg-release-164ca83-20261003T183713Z`.
+Cadastros estaveis dos seis dispositivos e duas fontes, hash do ambiente
+e IDs de TODOS os containers identicos antes/depois. Nenhum restart,
+migracao ou mudanca no DashboardConecta, versionador ou site principal.
+As mudancas sao do cliente LG, ferramentas, testes e documentos; runtime
+da API, painel e fonte tecnica permanece igual. API saudavel; 18 checks
+HTTPS publicos e painel desktop/mobile (login/logout, paginas, cookie,
+endpoints protegidos e CORS webOS) passaram. 44 testes LG, dez de
+publicacao, lint e typecheck repetidos com sucesso antes do commit.
+Este registro e a documentacao de status compoem um commit posterior
+de retomada; `releases/current-source-commit` na VM registra o hash final.
+Nenhum envio a LG ou inicio de Roku. C1 nao reinstalada nesta rodada.
+
+Proxima sessao: continuar preparacao LG, sem repetir ativacao da C1.
+Concluir QA ainda pendente e acesso de avaliador em aparelho separado;
+finalizar checklist, capturas e UX Scenario oficial (preferir modelo .pptx
+atual se disponivel). Conferir codigos privados e prazo de 02/11/2026 UTC.
+Ferramentas desta sessao nao controlam a aba do Seller Lounge; solicitar
+captura do formulario para preencher junto ao proprietario. Envio a loja
+exige autorizacao; Roku so depois desse envio.
 
 ## Rodada local e C1: seguranca e QA (03/10/2026)
 

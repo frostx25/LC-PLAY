@@ -26,9 +26,10 @@ registra commit, hash e o aviso de QA final pendente. IPK atual validado na C1:
 
 SHA-256: `ed3fe7719bdb132aa20dc74863d2069a813be7355fe39c658cfefde984d1ee2e`.
 
-Esse candidato foi instalado somente na C1; VM e Git continuam na versao
-anterior ate nova autorizacao. Resultados e limites em
-`qa-candidato-2026-10-03.md`.
+Esse candidato foi instalado na C1 e depois, sob autorizacao, guardado
+privadamente na VM em `/opt/lc-play/releases/164ca83/`. Codigo `164ca83`
+publicado no Git, com commit posterior de documentacao de retomada.
+Nao foi enviado a LG; resultados e limites em `qa-candidato-2026-10-03.md`.
 
 O icone `store-icon-400.png` acompanha o candidato. As imagens em
 `internal-browser-previews` sao previas internas com fonte mock; nao enviar

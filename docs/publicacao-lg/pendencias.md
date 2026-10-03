@@ -9,11 +9,13 @@ O pacote `ed3fe771...` foi instalado sem desinstalar a C1, sob autorizacao.
 sem perder ativacao, relaunch, duas permissoes ACG e quatro documentos offline.
 Proprietario confirmou Magic Remote/rolagem, Home sem audio residual e
 ativacao/retomada apos desligar/ligar. Relatou quatro horas estaveis ontem
-na versao anterior. Este candidato NAO foi enviado a VM/Git ou Seller Lounge;
-as secoes de producao abaixo descrevem os releases anteriores.
+na versao anterior. Posteriormente, sob autorizacao, o codigo `164ca83`
+foi enviado ao Git e sincronizado na VM com o IPK e kit privados.
+Nenhum envio ao Seller Lounge. As entradas antigas abaixo sao historicas.
 
 ## Concluido em producao
 
+- Release `164ca83`: codigo, IPK `ed3fe771...`, icone quadrado, planilha oficial em rascunho e kit de submissao guardados privadamente na VM. Backup `lg-release-164ca83-20261003T183713Z`; seis aparelhos, duas fontes, ambiente e IDs de todos os containers preservados. Sem restart, migracao ou alteracao de outros projetos. 18 checks HTTPS e painel desktop/mobile passaram. Codigo e registro de retomada publicados no Git; nao enviado a LG. QA fisico restante e documentos oficiais ainda pendentes.
 - Codigo `1c60cf3` e IPK fisico `599e46de...` sincronizados na VM sob autorizacao e enviados ao Git. Backup privado `lg-release-1c60cf3-20261003T171700Z`; ambiente, registros de aparelhos/fontes e IDs de todos os containers iguais antes/depois, sem rebuild ou restart. API/painel e 18 checks publicos aprovados. Repetidos documentos offline e fonte propria MP4/HLS/EPG/filmes/episodios na C1; catalogo original restaurado. Distribuicao inicial somente Brasil e portugues brasileiro confirmada. Nenhuma submissao LG.
 - Atualizacao autorizada somente na C1 com progresso de importacao, cache de 6 horas e dados de tempo do download. IPK `0.1.0` atual: SHA-256 `599e46def91f51765e58d7cea99ccc86a1977067d4584358e46be30345a045d0`. `native-download-timing-report.json` confirma fonte real, velocidade/tempo decorrido, catalogos completos e cache de navegacao, com ativacao/fonte preservadas. Fonte atual nao informa tamanho total; estimativa de restante validada com HTTP local, nao com outra fonte na TV. Revisao fisica completa, standby e sessao prolongada continuam pendentes; nao confundir resultados dos pacotes anteriores com QA final deste IPK.
 - API publica HTTPS em `https://api-lcplay.thxtech.site/api` e painel em `https://lcplay.thxtech.site`, usando Cloudflare Tunnel dedicado na VM. Banco privado, segredos fora do Git e backups iniciais protegidos. Backups externos automatizados e alertas operacionais ainda precisam ser configurados.

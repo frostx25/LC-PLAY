@@ -1,7 +1,10 @@
 # QA do candidato LG em 03/10/2026
 
-Estado: candidato local, instalado sob autorizacao na C1. Nao enviado a LG,
-VM ou Git. O backend publico existente foi utilizado sem alterar cadastros.
+Estado: candidato instalado sob autorizacao na C1. Depois do QA, o
+proprietario autorizou publicar o codigo `164ca83` no Git e sincroniza-lo
+na VM, com IPK e kit privados em `/opt/lc-play/releases/164ca83/`.
+Nao enviado a LG. Backend existente utilizado sem alterar cadastros;
+backup e verificacao de preservacao registrados em `../retomada.md`.
 
 ## Pacote e aparelho
 
