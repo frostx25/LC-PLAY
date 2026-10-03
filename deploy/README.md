@@ -17,13 +17,17 @@ Internet HTTPS -> Cloudflare -> lcplay-cloudflared.service
      -> painel 127.0.0.1:3030
      -> API 127.0.0.1:4130
         -> PostgreSQL exclusivo, sem porta publicada
+     -> suporte e fonte QA propria 127.0.0.1:4181
 ```
 
-O tunel nao transporta videos ou listas M3U. O servico JavaScript do aparelho LG baixa e processa a lista e o EPG diretamente do provedor; a API entrega apenas a configuracao autorizada ao dispositivo.
+O servico JavaScript do aparelho LG baixa e processa listas e EPG diretamente do provedor; a API entrega a configuracao autorizada e nao retransmite videos de terceiros. A excecao e a fonte QA tecnica propria: seus documentos, M3U, EPG e pequenos clipes sinteticos sao publicados pelo tunel para avaliacao da LG.
 
 ## Configuracao privada
 
 - `/opt/lc-play/deploy/.env.production`: arquivo `600`, pertencente a root.
+- `/opt/lc-play` e `deploy`: diretorios `755`, root; backups `700`. Diretorios
+  do projeto nao permitem escrita publica. A permissao privada do arquivo
+  de ambiente depende tambem da protecao de seus diretorios pais.
 - `/etc/lcplay-cloudflared/tunnel.json`: credencial exclusiva do tunel, arquivo `600`.
 - `/etc/lcplay-cloudflared/config.yml`: configuracao gerada de `cloudflared.yml.example` com o UUID do tunel.
 - `/etc/systemd/system/lcplay-cloudflared.service`: inicializacao e reinicio automaticos, usuario dinamico sem privilegios, credencial fornecida por `LoadCredential`.
@@ -84,6 +88,51 @@ O script usa `https://api-lcplay.thxtech.site`, gera `apps/lg-webos/dist-tv-prod
 Instalar sobre o mesmo identificador `com.lcplay.tv`, sem desinstalar o app primeiro, preserva a ativacao no armazenamento do aparelho.
 
 ## Validacao
+
+### Publicacao LG em 03/10/2026
+
+Commit `6daa307` publicado sob autorizacao exclusiva do LC PLAY. Backup de banco,
+fonte, ambiente e Nginx em `/opt/lc-play/backups/lg-release-6daa307-20261003T152639Z`;
+imagem antiga da API em `lc-play-api:rollback-6daa307`. Nenhuma migracao nova,
+seed ou restauracao de banco foi executada. C1 e outros containers preservados.
+
+`lg-public` usa profile `lg-review`, contexto gerado por
+`pnpm lg:store:public:package`, bind loopback, usuario sem privilegios e
+filesystem readonly. O flag de aprovacao foi passado ao Compose, sem editar
+o ambiente privado; o container preserva esse flag durante restart/reboot.
+Uma futura **recriacao** exige passar novamente o flag, sob autorizacao:
+
+```sh
+LG_PUBLIC_RELEASE_APPROVED=1 docker compose --env-file .env.production -f compose.production.yml --profile lg-review build api lg-public
+LG_PUBLIC_RELEASE_APPROVED=1 docker compose --env-file .env.production -f compose.production.yml --profile lg-review up -d --no-deps --wait api lg-public
+```
+
+Nao aplicar rotas novas do Nginx antes de o container estar saudavel. Fazer
+backup da configuracao anterior, testar `nginx -t` e so depois recarregar.
+Nunca publicar `artifacts/lg-submission` ou o kit interno inteiro.
+
+- `node scripts/test-lg-public-production.mjs`: 18 verificacoes externas de
+  documentos, fonte propria, EPG, MP4 Range, HLS e isolamento privado.
+- `LG_REVIEW_PROVISION_APPROVED=1 node scripts/test-lg-review-production.mjs`:
+  cria e remove apenas um dispositivo QA extra, reutiliza cliente QA, testa
+  ativacao concorrente e estados, preserva C1 e as cinco chaves de revisao.
+  Exige ambiente privado local e provisionamento concluido; nao rodar sem
+  autorizacao para alterar dados QA de producao.
+- `LG_NATIVE_SUPPORT=1 node scripts/test-lg-network-service.mjs`: tres leitores
+  offline no pacote da C1, rolagem, Back por evento no elemento focado, foco
+  restaurado e token mantido. Usuario confirmou depois setas/Back nos
+  documentos e popup de saida na Home; outros fluxos/modelos seguem pendentes.
+- `LG_NATIVE_REVIEW=1 node scripts/test-lg-network-service.mjs`: sessao
+  temporaria no app existente da C1, substitui somente respostas de fonte
+  por URLs HTTPS proprias, testa M3U/MP4/HLS/XMLTV/catalogos e restaura a
+  fonte e catalogo originais. Nao altera cadastros nem consome chaves LG.
+  Usuario confirmou imagem e som. Nao prova ativacao com chave de revisao
+  em outra TV; capturas do inspetor nao mostraram a imagem do video.
+
+URLs publicas: `/legal/`, `/legal/privacidade`, `/legal/termos`, `/playlist.m3u`,
+`/epg.xml` em `https://lcplay.thxtech.site`. Fonte QA contem somente midia
+sintetica propria. Chaves dos cinco aparelhos permanecem no arquivo local
+privado ignorado pelo Git; nao constam das paginas, imagem Docker ou IPK.
 
 Em 03/10/2026, o painel passou nos testes publicos em 1366 x 768 e 390 x 844. O pacote de producao instalado na C1 preservou a ativacao e carregou 2.777 canais, 21.484 filmes e 6.919 series (281.693 episodios), com EPG real, video 1280 x 720 com audio e tela cheia sem recriar o video. Os testes confirmaram zero chamadas ao catalogo do backend e PIN `0000` nas tres secoes. O tunel continuou respondendo apos reinicio do servico e remocao do certificado temporario de administracao.
 

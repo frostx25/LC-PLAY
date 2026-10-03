@@ -20,7 +20,7 @@ function download(address, options) {
     var settled = false;
     var pendingData = 0;
     var ended = false;
-    var result = { http: null, bytes: 0, complete: false, headerValid: false, redirects: 0 };
+    var result = { http: null, bytes: 0, transferredBytes: 0, complete: false, headerValid: false, redirects: 0 };
     var prefix = Buffer.alloc(0);
     function finish(error, complete) {
       if (settled) return;
@@ -63,6 +63,10 @@ function download(address, options) {
             return visit(url.resolve(target, incoming.headers.location));
           }
           if (incoming.statusCode !== 200) return finish('HTTP_' + incoming.statusCode);
+          var contentLength = Number(incoming.headers['content-length']);
+          var totalBytes = Number.isSafeInteger(contentLength) && contentLength > 0 ? contentLength : null;
+          // Count transport bytes separately: Content-Length describes compressed data.
+          incoming.on('data', function (chunk) { result.transferredBytes += chunk.length; });
           var encoding = (incoming.headers['content-encoding'] || '').toLowerCase();
           decoded = incoming;
           if (encoding === 'gzip') decoded = incoming.pipe(zlib.createGunzip());
@@ -75,6 +79,7 @@ function download(address, options) {
           decoded.on('data', function (chunk) {
             if (settled) return;
             result.bytes += chunk.length;
+            if (options.onProgress) options.onProgress({ bytes: result.transferredBytes, totalBytes: totalBytes });
             if (prefix.length < 16384) prefix = Buffer.concat([prefix, chunk.slice(0, 16384 - prefix.length)]);
             if (result.bytes > maxBytes) return finish('SIZE_LIMIT');
             if (options.onData) {

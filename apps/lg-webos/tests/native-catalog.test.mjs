@@ -8,7 +8,7 @@ import { loadNativeCatalog, loadNativeEpisodes, nativeCatalogCall } from '../src
 const require = createRequire(import.meta.url);
 const catalog = require('../service/catalog.js');
 
-test('TV imports the entire M3U incrementally, pages every item, and indexes all series episodes', async () => {
+test('TV imports the entire M3U incrementally, pages every item, and indexes all series episodes', async (context) => {
   const lines = ['#EXTM3U x-tvg-url="https://example.com/guide.xml"'];
   for (let i = 0; i < 2100; i++) lines.push(`#EXTINF:-1 group-title="Canais | Abertos",Canal ${i}`, `https://example.com/live/${i}.ts`);
   for (let i = 0; i < 1600; i++) lines.push(`#EXTINF:-1 group-title="Filmes | Cinema",Filme ${i}`, `https://example.com/movie/${i}.mp4`);
@@ -16,7 +16,8 @@ test('TV imports the entire M3U incrementally, pages every item, and indexes all
     for (let series = 0; series < 4; series++) lines.push(`#EXTINF:-1 group-title="Séries | Netflix",Série ${series} S01E${episode}`, `https://example.com/series/${series}-${episode}.mp4`);
   }
   lines.push('#EXTINF:-1,Duplicado', 'https://example.com/live/0.ts');
-  const server = createServer((_req, response) => response.end(lines.join('\n'))).listen(0, '127.0.0.1');
+  let downloads = 0;
+  const server = createServer((_req, response) => { downloads++; response.end(lines.join('\n')); }).listen(0, '127.0.0.1');
   await once(server, 'listening');
   try {
     await catalog.clear();
@@ -24,6 +25,10 @@ test('TV imports the entire M3U incrementally, pages every item, and indexes all
     const first = catalog.loadCatalog(params), second = catalog.loadCatalog(params);
     assert.equal(first, second, 'concurrent imports share one download');
     const snapshot = await first;
+    assert.equal(catalog.progress(params).stage, 'ready');
+    assert.equal(catalog.progress(params).items, 4900);
+    assert.equal(catalog.progress({ sourceId: 'other', revision: 'r1' }).stage, 'source');
+    assert.equal(JSON.stringify(catalog.progress(params)).includes('https:'), false, 'progress contains no provider addresses or credentials');
     assert.deepEqual(snapshot.catalog.summary, { total: 4900, live: 2100, movies: 1600, series: 1200, seriesTitles: 4 });
     assert.equal(snapshot.catalog.truncated, false);
     assert.equal((await catalog.loadCatalog(params)).catalogId, snapshot.catalogId, 'warm cache stays on the TV');
@@ -43,6 +48,10 @@ test('TV imports the entire M3U incrementally, pages every item, and indexes all
     assert.equal(episodes.length, 300); assert.equal(episodes[299].series.episode, 300);
     delete require.cache[require.resolve('../service/catalog.js')];
     const restarted = require('../service/catalog.js');
+    const now = context.mock.method(Date, 'now', () => Date.parse(snapshot.catalog.refreshedAt) + 60 * 60000);
+    assert.equal((await restarted.loadCatalog(params)).catalogId, snapshot.catalogId, 'disk cache survives service restart and an hour without redownloading');
+    assert.equal(downloads, 1);
+    now.mock.restore();
     assert.equal((await restarted.page({ ...args, kind: 'LIVE', offset: 2099 })).items[0].name, 'Canal 2099');
     await assert.rejects(catalog.page({ ...args, sourceId: 'another', kind: 'LIVE' }), /SOURCE_MISMATCH/);
     await assert.rejects(catalog.page({ ...args, revision: 'another', kind: 'LIVE' }), /SOURCE_MISMATCH/);
@@ -54,9 +63,86 @@ test('TV imports the entire M3U incrementally, pages every item, and indexes all
     console.log(`Native fixture: ${snapshot.catalog.summary.total} items; ${manifest.diagnostic.durationMs}ms; RSS ${(manifest.diagnostic.peakRss / 1048576).toFixed(1)}MiB`);
     const refreshed = await catalog.loadCatalog({ ...params, force: true });
     assert.notEqual(refreshed.catalogId, snapshot.catalogId);
+    assert.equal(downloads, 2, 'manual refresh always downloads');
+    const expired = context.mock.method(Date, 'now', () => Date.parse(refreshed.catalog.refreshedAt) + 6 * 60 * 60000);
+    const renewed = await catalog.loadCatalog(params);
+    expired.mock.restore();
+    assert.notEqual(renewed.catalogId, refreshed.catalogId, 'cache expires after six hours');
+    assert.equal(downloads, 3);
     await assert.rejects(catalog.loadCatalog({ ...params, revision: 'bad', sourceUrl: 'data:bad' }), /INVALID_URL/);
     assert.equal((await catalog.page({ catalogId: refreshed.catalogId, sourceId: 'qa', revision: 'r1', kind: 'LIVE' })).items.length, 250, 'failed refresh preserves the last successful catalog');
   } finally { await catalog.clear(); await new Promise((resolve) => server.close(resolve)); }
+});
+
+test('native frontend reports real import and page progress and stops polling before reading pages', async (context) => {
+  const previous = globalThis.window;
+  const updates = [];
+  let polls = 0;
+  context.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify({ sourceId: 'qa', revision: 'r', source: { id: 'qa', type: 'M3U' } })));
+  try {
+    globalThis.window = { webOS: { service: { request(_uri, options) {
+      let timer;
+      if (options.method === 'loadCatalog') timer = setTimeout(() => options.onSuccess({ catalogId: 'local', revision: 'r', catalog: { source: { id: 'qa' }, summary: { movies: 2 }, epg: {} } }), 1150);
+      else if (options.method === 'catalogProgress') options.onSuccess(++polls === 1 ? { stage: 'download', completed: 10, total: 20 } : { stage: 'index', completed: 20, total: 20, items: 2 });
+      else options.onSuccess({ items: [{ id: String(options.parameters.offset) }], nextOffset: options.parameters.offset === 0 ? 1 : null });
+      return { cancel() { clearTimeout(timer); } };
+    } } } };
+    const result = await loadNativeCatalog('MOVIE', 'token', new AbortController().signal, false, (progress) => updates.push(progress));
+    assert.equal(result.items.length, 2);
+    assert.deepEqual(updates.map((entry) => entry.stage), ['source', 'download', 'index', 'library', 'library', 'library']);
+    assert.deepEqual(updates.at(-1), { stage: 'library', kind: 'MOVIE', completed: 2, total: 2 });
+    assert.equal(polls, 2);
+    updates.length = 0;
+    await loadNativeEpisodes('local', 'r', 'qa', 'series', 'token', new AbortController().signal, (progress) => updates.push(progress), 2);
+    assert.deepEqual(updates.map((entry) => entry.completed), [0, 1, 2]);
+    await assert.rejects(loadNativeEpisodes('local', 'r', 'qa', 'series', 'token', new AbortController().signal, undefined, 3), /incompletos/);
+  } finally { globalThis.window = previous; }
+});
+
+test('aborting a catalog load cancels progress polling and ignores its late response', async (context) => {
+  const previous = globalThis.window;
+  const controller = new AbortController();
+  const updates = [];
+  let pollCallback;
+  let cancelled = 0;
+  let pollStarted;
+  const started = new Promise((resolve) => { pollStarted = resolve; });
+  context.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify({ sourceId: 'qa', revision: 'r', source: { id: 'qa', type: 'M3U' } })));
+  try {
+    globalThis.window = { webOS: { service: { request(_uri, options) {
+      if (options.method === 'catalogProgress') { pollCallback = options.onSuccess; pollStarted(); }
+      return { cancel() { cancelled++; } };
+    } } } };
+    const result = loadNativeCatalog('MOVIE', 'token', controller.signal, false, (progress) => updates.push(progress));
+    await started;
+    controller.abort();
+    await assert.rejects(result, { name: 'AbortError' });
+    pollCallback({ stage: 'download', completed: 999 });
+    assert.equal(cancelled, 2);
+    assert.deepEqual(updates.map((entry) => entry.stage), ['source']);
+  } finally { globalThis.window = previous; }
+});
+
+test('progress survives a transient failure and a TV reply slower than two seconds', async (context) => {
+  const previous = globalThis.window;
+  const updates = [];
+  let polls = 0;
+  context.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify({ sourceId: 'qa', revision: 'r', source: { id: 'qa', type: 'M3U' } })));
+  try {
+    globalThis.window = { webOS: { service: { request(_uri, options) {
+      let timer;
+      if (options.method === 'loadCatalog') timer = setTimeout(() => options.onSuccess({ catalogId: 'local', revision: 'r', catalog: { source: { id: 'qa' }, summary: { movies: 1 }, epg: {} } }), 3600);
+      else if (options.method === 'catalogProgress') {
+        if (++polls === 1) options.onFailure();
+        else timer = setTimeout(() => options.onSuccess({ stage: 'download', completed: 10, total: 20, elapsedMs: 3200 }), 2200);
+      } else options.onSuccess({ items: [{ id: 'movie' }], nextOffset: null });
+      return { cancel() { clearTimeout(timer); } };
+    } } } };
+    const result = await loadNativeCatalog('MOVIE', 'token', new AbortController().signal, false, (progress) => updates.push(progress));
+    assert.equal(result.items.length, 1);
+    assert.equal(polls, 2);
+    assert.ok(updates.some((progress) => progress.stage === 'download' && progress.elapsedMs === 3200));
+  } finally { globalThis.window = previous; }
 });
 
 test('native catalog requests cancel on navigation and ignore late replies', async () => {

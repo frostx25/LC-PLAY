@@ -9,7 +9,7 @@ import {
   type FormEvent,
   type ReactNode,
 } from "react";
-import type { CatalogItem, CatalogKind, ChannelEpg, DeviceCatalog } from "@lc-play/contracts";
+import type { CatalogItem, CatalogKind, ChannelEpg, DeviceCatalog, DeviceMediaSource } from "@lc-play/contracts";
 import {
   ArrowLeft,
   CalendarDays,
@@ -39,6 +39,8 @@ import { APP_VERSION } from "./lib/release";
 import { SearchField } from "./components/SearchField";
 import { SupportDocuments } from "./components/SupportDocuments";
 import { VirtualPosterGrid } from "./components/VirtualPosterGrid";
+import { CatalogProgress } from "./components/CatalogProgress";
+import { canReuseCatalog, catalogExpiresAt, type CatalogProgress as Progress } from "./lib/catalog-progress";
 import { ParentalControlProvider } from "./components/ParentalControl";
 import { useParentalControl } from "./lib/parental-context";
 import { isAdultGroup } from "./lib/parental";
@@ -75,7 +77,6 @@ type SeriesCollection = {
 };
 
 const TOKEN_KEY = "lc_play_device_token";
-const CATALOG_CACHE_MS = 5 * 60_000;
 const clockFormatter = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
 function App() {
@@ -86,6 +87,7 @@ function App() {
   const [configuration, setConfiguration] = useState<Configuration | null>(null);
   const [catalog, setCatalog] = useState<DeviceCatalog | null>(() => demo ? createDemoCatalog() : null);
   const [catalogLoading, setCatalogLoading] = useState(!demo);
+  const [catalogProgress, setCatalogProgress] = useState<Progress | null>(null);
   const [catalogError, setCatalogError] = useState("");
   const [connectionError, setConnectionError] = useState("");
   const kindRef = useRef<CatalogKind>("LIVE");
@@ -117,6 +119,7 @@ function App() {
     setConfiguration(null);
     setCatalog(null);
     setCatalogLoading(false);
+    setCatalogProgress(null);
     setCatalogError("");
     setConnectionError("");
     setMode("activation");
@@ -134,6 +137,7 @@ function App() {
     if (options.background && catalogRequestRef.current) return;
     catalogRequestRef.current?.abort();
     catalogRequestRef.current = null;
+    setCatalogProgress(null);
     const cached = catalogCacheRef.current.get(kind);
     if (cached) {
       setCatalog(cached.catalog);
@@ -143,16 +147,28 @@ function App() {
       loadedKindRef.current = null;
     }
     setCatalogError("");
-    if (cached && cached.expiresAt > Date.now() && !options.force) {
+    if (cached && cached.expiresAt > Date.now() && !options.force && !options.background) {
       setCatalogLoading(false);
       return;
     }
     const controller = new AbortController();
     catalogRequestRef.current = controller;
-    setCatalogLoading(true);
+    if (!options.background || !cached) {
+      setCatalogLoading(true);
+      setCatalogProgress({ stage: "source", kind });
+    }
     try {
+      if (options.background && cached?.catalog.nativeCatalogId && !options.force) {
+        const source = await request<DeviceMediaSource>("v1/device/media/source", { signal: controller.signal }, token, undefined, 15_000);
+        if (canReuseCatalog(cached, source)) return;
+      }
+      if (controller.signal.aborted) return;
+      setCatalogLoading(true);
+      setCatalogProgress({ stage: "source", kind });
       const nextCatalog = nativeCatalogSupported()
-        ? await loadNativeCatalog(kind, token, controller.signal, options.force)
+        ? await loadNativeCatalog(kind, token, controller.signal, options.force, (progress) => {
+          if (catalogRequestRef.current === controller && !controller.signal.aborted) setCatalogProgress(progress);
+        })
         : await request<DeviceCatalog>(`v1/device/catalog?kind=${kind}&compact=true`, { signal: controller.signal }, token, undefined, 115_000);
       if (!controller.signal.aborted) {
         for (const entry of catalogCacheRef.current.values()) {
@@ -161,7 +177,7 @@ function App() {
             break;
           }
         }
-        catalogCacheRef.current.set(kind, { catalog: nextCatalog, expiresAt: Date.now() + CATALOG_CACHE_MS });
+        catalogCacheRef.current.set(kind, { catalog: nextCatalog, expiresAt: catalogExpiresAt(nextCatalog) });
         loadedKindRef.current = kind;
         setCatalog(nextCatalog);
       }
@@ -174,6 +190,7 @@ function App() {
       if (catalogRequestRef.current === controller) {
         catalogRequestRef.current = null;
         setCatalogLoading(false);
+        setCatalogProgress(null);
       }
     }
   }, [clearDeviceSession, demo]);
@@ -183,6 +200,7 @@ function App() {
     const token = localStorage.getItem(TOKEN_KEY);
     if (!token) return;
     setCatalogLoading(true);
+    setCatalogProgress({ stage: "source", kind: kindRef.current });
     setCatalogError("");
     try {
       const nextConfiguration = await request<Configuration>("v1/device/configuration", undefined, token, undefined, 15_000);
@@ -206,7 +224,7 @@ function App() {
       if (isAuthenticationFailure(caught)) clearDeviceSession();
       else setCatalogError(caught instanceof Error ? caught.message : "Não foi possível atualizar o conteúdo.");
     } finally {
-      if (!catalogRequestRef.current) setCatalogLoading(false);
+      if (!catalogRequestRef.current) { setCatalogLoading(false); setCatalogProgress(null); }
     }
   }, [clearDeviceSession, demo, loadCatalog]);
 
@@ -263,7 +281,7 @@ function App() {
     heartbeat();
     const heartbeatTimer = window.setInterval(heartbeat, 120_000);
     const catalogTimer = window.setInterval(() => {
-      if (!document.hidden) void loadCatalog(kindRef.current, { background: true, force: true });
+      if (!document.hidden) void loadCatalog(kindRef.current, { background: true });
     }, 5 * 60_000);
     return () => {
       window.clearInterval(heartbeatTimer);
@@ -302,6 +320,7 @@ function App() {
       configuration={configuration}
       catalog={catalog}
       loading={catalogLoading}
+      progress={catalogProgress}
       error={catalogError || connectionError}
       demo={demo}
       onRefresh={refreshAll}
@@ -428,6 +447,7 @@ function PlayerContent({
   configuration,
   catalog,
   loading,
+  progress,
   error,
   demo,
   onRefresh,
@@ -437,6 +457,7 @@ function PlayerContent({
   configuration: Configuration | null;
   catalog: DeviceCatalog | null;
   loading: boolean;
+  progress: Progress | null;
   error: string;
   demo: boolean;
   onRefresh: () => Promise<void>;
@@ -496,6 +517,7 @@ function PlayerContent({
 
   return (
     <main className="tv-shell">
+      <div className="tv-page">
       {view === "HOME" ? (
         <HomeScreen
           configuration={configuration}
@@ -562,6 +584,8 @@ function PlayerContent({
         <SeriesDetails key={selectedSeries.id} series={selectedSeries} catalog={catalog} onAuthenticationFailure={onDisconnect} onBack={() => setSelectedSeries(null)} onPlay={playItem} />
       ) : null}
       {playing && playing.kind !== "LIVE" ? <StreamPlayer item={playing} /> : null}
+      </div>
+      {loading && !playing && progress ? <CatalogProgress progress={progress} /> : null}
     </main>
   );
 }
@@ -1093,13 +1117,14 @@ function SeriesDetails({
   const [loading, setLoading] = useState(!series.episodes.length);
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
+  const [episodeProgress, setEpisodeProgress] = useState<Progress>({ stage: "episodes", completed: 0, total: series.episodeCount });
   const [season, setSeason] = useState(series.episodes[0]?.series?.season ?? 0);
   useEffect(() => {
     if (series.episodes.length) return;
     const controller = new AbortController();
     const token = localStorage.getItem(TOKEN_KEY) ?? "";
     const operation = catalog?.nativeCatalogId && catalog.nativeRevision
-      ? loadNativeEpisodes(catalog.nativeCatalogId, catalog.nativeRevision, catalog.source.id, series.id, token, controller.signal)
+      ? loadNativeEpisodes(catalog.nativeCatalogId, catalog.nativeRevision, catalog.source.id, series.id, token, controller.signal, setEpisodeProgress, series.episodeCount)
       : request<CatalogItem[]>(`v1/device/catalog/series/${encodeURIComponent(series.id)}`, { signal: controller.signal }, token, undefined, 115_000);
     void operation
       .then((items) => { if (!controller.signal.aborted) { setAllEpisodes(items); setSeason(items[0]?.series?.season ?? 0); } })
@@ -1134,7 +1159,7 @@ function SeriesDetails({
           <p>{formatCount(series.episodeCount)} episódios{seasons.length ? ` · ${seasons.length} ${seasons.length === 1 ? "temporada" : "temporadas"}` : ""}</p>
         </div>
       </div>
-      {loading ? <CatalogMessage icon={<LoaderCircle className="spin" />} title="Carregando episódios" /> : null}
+      {loading ? <CatalogProgress progress={episodeProgress} /> : null}
       {!loading && error ? <CatalogMessage icon={<RefreshCw />} title={error} action={<button data-focusable className="tv-primary" onClick={() => { setLoading(true); setError(""); setAttempt((value) => value + 1); }}>Tentar novamente</button>} /> : null}
       {!loading && !error && !allEpisodes.length ? <CatalogMessage icon={<Layers3 />} title="Nenhum episódio disponível" /> : null}
       <nav className="group-tabs season-tabs" aria-label="Temporadas">

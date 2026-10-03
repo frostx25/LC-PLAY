@@ -17,8 +17,8 @@
 | País inicial sugerido | Brasil; decisão pendente |
 | Preço/licença do aplicativo | Aplicativo e ativação gratuitos nesta versão; confirmado em 03/10/2026 |
 | Operação | Pessoa física; Leonardo Pereira; São Paulo, Brasil; sem CNPJ |
-| Suporte planejado | `https://lcplay.thxtech.site/legal/`; preparado localmente, publicação pendente |
-| Privacidade planejada | `https://lcplay.thxtech.site/legal/privacidade`; preparado localmente, publicação pendente |
+| Suporte | `https://lcplay.thxtech.site/legal/`; publicado e verificado em 03/10/2026 |
+| Privacidade | `https://lcplay.thxtech.site/legal/privacidade`; publicado e verificado em 03/10/2026 |
 
 ## Português
 

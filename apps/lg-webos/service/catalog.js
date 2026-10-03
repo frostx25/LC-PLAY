@@ -12,6 +12,8 @@ var loaded = new Map();
 var pending = new Map();
 var working = new Set();
 var epoch = 0;
+var progressStates = new Map();
+var CACHE_MS = 6 * 60 * 60000;
 var PAGE_SIZE = 250;
 var filenames = ['LIVE.jsonl', 'MOVIE.jsonl', 'EPISODES.jsonl', 'SERIES.jsonl', 'manifest.json', 'RAW.m3u'];
 
@@ -48,8 +50,22 @@ function snapshot(id) {
   }).catch(function () { fail('CATALOG_EXPIRED'); });
 }
 function publicSnapshot(value) { return { catalogId: value.catalogId, catalog: value.catalog, revision: value.revision, diagnostic: value.diagnostic }; }
+function sourceKey(parameters) {
+  if (!parameters || typeof parameters.sourceId !== 'string' || typeof parameters.revision !== 'string') fail('INVALID_SOURCE');
+  return crypto.createHash('sha256').update(parameters.sourceId + ':' + parameters.revision).digest('hex');
+}
+function progress(parameters) {
+  var state = progressStates.get(sourceKey(parameters));
+  var value = Object.assign({}, state || { stage: 'source' });
+  if (state && state.stage === 'download') {
+    value.elapsedMs = Math.max(0, Date.now() - state.startedAt);
+    value.stalled = Date.now() - (state.lastDataAt || state.startedAt) > 8000;
+  }
+  delete value.startedAt; delete value.lastDataAt;
+  return value;
+}
 
-function importCatalog(parameters, id) {
+function importCatalog(parameters, id, state) {
   var started = Date.now();
   var generation = epoch;
   var dir = directory(id);
@@ -108,6 +124,7 @@ function importCatalog(parameters, id) {
       else collection.ranges.push({ start: range.start, end: range.end, count: 1 });
     });
     batch = []; entries = 0;
+    state.items = summary.total;
     peakRss = Math.max(peakRss, process.memoryUsage().rss);
     return persist(buffers);
   }
@@ -136,17 +153,21 @@ function importCatalog(parameters, id) {
     return ['LIVE', 'MOVIE', 'EPISODES', 'SERIES'].reduce(function (promise, kind) { return promise.then(function () { return write(path.join(dir, kind + '.jsonl'), ''); }); }, Promise.resolve());
   }).then(function () {
     return write(path.join(dir, 'RAW.m3u'), '').then(function () {
-      return network.download(parameters.sourceUrl, { full: true, kind: 'M3U', timeoutMs: 90000, allowLoopback: parameters.allowLoopback === true, onData: function (chunk) { return io('appendFile', [path.join(dir, 'RAW.m3u'), chunk]); } });
+      state.stage = 'download'; state.startedAt = Date.now();
+      return network.download(parameters.sourceUrl, { full: true, kind: 'M3U', timeoutMs: 90000, allowLoopback: parameters.allowLoopback === true,
+        onProgress: function (value) { state.completed = value.bytes; state.total = value.totalBytes; state.lastDataAt = Date.now(); },
+        onData: function (chunk) { if (generation !== epoch) fail('SOURCE_REVOKED'); return io('appendFile', [path.join(dir, 'RAW.m3u'), chunk]); } });
     });
   }).then(function (result) {
     if (result.error || !result.complete) fail(result.error || 'INCOMPLETE_DOWNLOAD');
+    state.stage = 'index'; state.completed = 0; state.total = result.bytes;
     return new Promise(function (resolve, reject) {
       var input = fs.createReadStream(path.join(dir, 'RAW.m3u'), { highWaterMark: 256 * 1024 });
       var operation = Promise.resolve();
       input.on('error', reject);
       input.on('data', function (chunk) {
         input.pause();
-        operation = operation.then(function () { return consume(decoder.write(chunk)); });
+        operation = operation.then(function () { return consume(decoder.write(chunk)); }).then(function () { state.completed += chunk.length; });
         operation.then(function () { input.resume(); }, function (error) { input.destroy(); reject(error); });
       });
       input.on('end', function () { operation.then(function () { return consume(decoder.end() + '\n'); }).then(flush).then(resolve, reject); });
@@ -170,23 +191,27 @@ function importCatalog(parameters, id) {
 
 function loadCatalog(parameters) {
   if (!parameters || !parameters.source || parameters.source.id !== parameters.sourceId || parameters.source.type !== 'M3U' || typeof parameters.sourceUrl !== 'string' || typeof parameters.revision !== 'string') return Promise.reject(new Error('INVALID_SOURCE'));
-  var key = crypto.createHash('sha256').update(parameters.sourceId + ':' + parameters.revision).digest('hex');
+  var key = sourceKey(parameters);
   if (pending.has(key)) return pending.get(key);
+  var state = { stage: 'source', completed: 0, total: null, items: 0 };
+  progressStates.set(key, state);
+  // Retain only the active jobs and the two most recent status records.
+  if (progressStates.size > pending.size + 2) progressStates.forEach(function (_value, entry) { if (entry !== key && !pending.has(entry)) progressStates.delete(entry); });
   var previousId;
   var operation = mkdir(root).then(function () { return io('readFile', [path.join(root, 'active.json'), 'utf8']); }).then(function (text) {
     var active = JSON.parse(text); previousId = active.catalogId;
     if (active.key !== key || parameters.force) return null;
-    return snapshot(active.catalogId).then(function (value) { return Date.now() - Date.parse(value.catalog.refreshedAt) < 5 * 60000 ? value : null; });
+    return snapshot(active.catalogId).then(function (value) { return Date.now() - Date.parse(value.catalog.refreshedAt) < CACHE_MS ? value : null; });
   }).catch(function () { return null; }).then(function (cached) {
     if (cached) return cached;
     var id = crypto.createHash('sha256').update(key + crypto.randomBytes(16).toString('hex')).digest('hex');
     working.add(id);
-    return importCatalog(parameters, id).then(function (value) {
+    return importCatalog(parameters, id, state).then(function (value) {
       loaded.set(id, value);
       return write(path.join(root, id + '.active.tmp'), JSON.stringify({ key: key, catalogId: id })).then(function () { return io('rename', [path.join(root, id + '.active.tmp'), path.join(root, 'active.json')]); })
         .then(function () { return prune([id, previousId]); }).then(function () { working.delete(id); return value; });
     }, function (error) { working.delete(id); throw error; });
-  }).then(function (value) { pending.delete(key); return publicSnapshot(value); }, function (error) { pending.delete(key); throw error; });
+  }).then(function (value) { state.stage = 'ready'; pending.delete(key); return publicSnapshot(value); }, function (error) { state.stage = 'error'; pending.delete(key); throw error; });
   pending.set(key, operation);
   return operation;
 }
@@ -255,8 +280,8 @@ function episodes(parameters) {
   });
 }
 function clear() {
-  epoch++; loaded.clear();
+  epoch++; loaded.clear(); progressStates.clear();
   return mkdir(root).then(function () { return io('unlink', [path.join(root, 'active.json')]).catch(function (error) { if (error.code !== 'ENOENT') throw error; }); }).then(function () { return prune([]); }).then(function () { return { cleared: true }; });
 }
 
-module.exports = { loadCatalog: loadCatalog, page: page, episodes: episodes, clear: clear, snapshot: snapshot };
+module.exports = { loadCatalog: loadCatalog, progress: progress, page: page, episodes: episodes, clear: clear, snapshot: snapshot };

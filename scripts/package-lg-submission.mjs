@@ -45,8 +45,8 @@ As capturas em internal-browser-previews sao previas com fonte tecnica propria e
 Os documentos e checklist sao propostas; nao substituir o checklist oficial com resultados ainda nao executados.
 
 Antes do envio:
-1. Autorizar a atualizacao exclusiva do LC PLAY na VM e publicar paginas/fonte QA.
-2. Provisionar e testar chaves QA privadas, sem alterar a C1 do proprietario.
+1. Conferir evidencias e disponibilidade HTTPS das paginas e da fonte QA publicadas sob autorizacao exclusiva do LC PLAY.
+2. Conferir provisionamento e validade das chaves QA privadas; testar sem alterar a C1 do proprietario.
 3. Revalidar pacote final na C1: ativacao, MP4/HLS/EPG, Magic Remote, Back, Home, suspensao/retomada e sessao prolongada.
 4. Revisar token local, permissoes, licencas de terceiros e procedimentos manuais de dados/backups.
 5. Concluir UX Scenario e checklist OFICIAIS, revisar metadados e executar envio no Seller Lounge.
@@ -54,4 +54,4 @@ Antes do envio:
 Chaves, tokens e senhas NUNCA acompanham este pacote publico. O provisionamento de acesso salva outro arquivo PRIVADO fora desta pasta.
 Nao iniciar Roku antes do envio LG, conforme orientacao do proprietario.
 `);
-console.log(`Local LG candidate prepared: ${output}. Not submitted; final physical QA and public reviewer access remain pending.`);
+console.log(`Local LG candidate prepared: ${output}. Not submitted; confirm reviewer access and complete final physical QA before sending.`);

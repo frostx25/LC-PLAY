@@ -1,6 +1,6 @@
 import { createRequire } from 'node:module';
 import { createDecipheriv, createHash } from 'node:crypto';
-import { copyFile, mkdir, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
 
@@ -15,7 +15,12 @@ const appDir = resolve(output, 'app');
 const serviceDir = resolve(output, 'service');
 const parentalMode = process.env.LG_NATIVE_PARENTAL === '1';
 const catalogMode = process.env.LG_NATIVE_CATALOG === '1';
-const nativeMode = process.env.LG_NATIVE_EPG === '1' || parentalMode || catalogMode;
+const supportMode = process.env.LG_NATIVE_SUPPORT === '1';
+const reviewMode = process.env.LG_NATIVE_REVIEW === '1';
+const stateMode = process.env.LG_NATIVE_STATE === '1';
+const progressMode = process.env.LG_NATIVE_PROGRESS === '1';
+const timingMode = process.env.LG_PROGRESS_REQUIRE_TIMING === '1';
+const nativeMode = process.env.LG_NATIVE_EPG === '1' || parentalMode || catalogMode || supportMode || reviewMode || stateMode || progressMode;
 const appId = nativeMode ? 'com.lcplay.tv' : 'com.lcplay.networktest';
 const device = process.env.LG_TEST_DEVICE || 'lg-c1';
 
@@ -85,6 +90,7 @@ if (!nativeMode) {
 console.log(await ares('package', ['--no-minify', appDir, serviceDir, '--outdir', output]));
 console.log(await ares('install', ['--device', device, resolve(output, `${appId}_0.1.0_all.ipk`)]));
 }
+if (reviewMode) console.log(await ares('launch', ['--close', '--device', device, appId]));
 console.log(await ares('launch', ['--device', device, appId]));
 
 let inspector;
@@ -134,14 +140,14 @@ try {
     if (!item) return;
     pending.delete(message.id);
     clearTimeout(item.timer);
-    if (message.error) item.reject(new Error('Debugger protocol request failed'));
+    if (message.error) item.reject(new Error(`Debugger protocol request failed: ${item.method} (${message.error.code}): ${String(message.error.message || '').replace(/https?:\/\/\S+/g, '[URL omitted]').slice(0, 160)}`));
     else item.resolve(message.result);
   });
   command = function (method, params = {}, timeoutMs = 220000) {
     return new Promise((resolvePromise, reject) => {
       const id = ++sequence;
       const timer = setTimeout(() => { pending.delete(id); reject(new Error(`Debugger timeout: ${method}`)); }, timeoutMs);
-      pending.set(id, { resolve: resolvePromise, reject, timer });
+      pending.set(id, { resolve: resolvePromise, reject, timer, method });
       debuggerSocket.send(JSON.stringify({ id, method, params }));
     });
   };
@@ -157,7 +163,263 @@ try {
   await command('Network.enable');
   if (!nativeMode) console.log(JSON.stringify({ app: await evaluate("({title: document.title, status: document.getElementById('status').textContent, runtime: document.getElementById('runtime').textContent})") }));
   const results = [];
-  if (catalogMode) {
+  async function fingerprint() {
+    // Raw values travel only over the local inspector and are never saved or printed.
+    const state = await evaluate(`(async function () {
+      var token = localStorage.getItem('lc_play_device_token');
+      if (!token) throw new Error('Device not activated');
+      var response = await fetch('https://api-lcplay.thxtech.site/api/v1/device/configuration', { headers: { Authorization: 'Bearer ' + token } });
+      if (!response.ok) throw new Error('Guide source unavailable');
+      var configuration = await response.json();
+      var storage = {};
+      Object.keys(localStorage).filter(function (key) { return key.indexOf('lc_play_') === 0; }).sort().forEach(function (key) { storage[key] = localStorage.getItem(key); });
+      return { storage: storage, configuration: { device: configuration.device, sourceId: configuration.playlist ? configuration.playlist.id : null } };
+    })()`);
+    const hash = (value) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
+    const storage = Object.fromEntries(Object.entries(state.storage).map(([key, value]) => [key, hash(value)]));
+    return { storage, configuration: hash(state.configuration), hasToken: Boolean(state.storage.lc_play_device_token) };
+  }
+  if (stateMode) {
+    if (process.env.LG_NATIVE_TRACE === '1') {
+      const trace = await evaluate(`(async function () {
+        var response = await fetch('https://api-lcplay.thxtech.site/api/v1/device/media/source', { headers: { Authorization: 'Bearer ' + localStorage.getItem('lc_play_device_token') } });
+        if (!response.ok) throw new Error('Guide source unavailable');
+        var source = await response.json();
+        var counts = {};
+        (window.__lcProgressCalls || []).forEach(function (call) { counts[call.method] = (counts[call.method] || 0) + 1; });
+        var result = await new Promise(function (resolve) {
+          var timer = setTimeout(function () { resolve({ timeout: true }); }, 10000);
+          webOS.service.request('luna://com.lcplay.tv.guide', { method: 'catalogProgress', parameters: { sourceId: source.sourceId, revision: source.revision }, onSuccess: function (value) { clearTimeout(timer); resolve({ stage: value.stage, elapsedMs: value.elapsedMs, returnValue: value.returnValue }); }, onFailure: function (value) { clearTimeout(timer); resolve({ errorCode: value.errorCode, errorText: String(value.errorText || '').replace(/https?:\\/\\/\\S+/g, '[URL omitted]').slice(0, 160) }); } });
+        });
+        return { counts: counts, progressReply: result };
+      })()`);
+      console.log(JSON.stringify({ nativeProgressTrace: trace }));
+    }
+    const state = await fingerprint();
+    await writeFile(resolve(output, 'before-progress-install.json'), JSON.stringify(state, null, 2));
+    results.push({ activationChecked: state.hasToken, storageFingerprintSaved: true, productionConfigurationChecked: true });
+    console.log('Original TV activation, stored settings and assigned production source fingerprint saved; no secrets recorded.');
+  } else if (progressMode) {
+    const before = JSON.parse(await readFile(resolve(output, 'before-progress-install.json'), 'utf8'));
+    const after = await fingerprint();
+    if (JSON.stringify(before) !== JSON.stringify(after)) throw new Error('TV activation, settings or assigned source changed during installation');
+    console.log('Activation, PIN/favorites and production configuration preserved after installation.');
+    async function waitFor(expression, timeoutMs = 150000) {
+      const end = Date.now() + timeoutMs;
+      while (Date.now() < end) {
+        if (await evaluate(expression)) return;
+        await new Promise((resolvePromise) => setTimeout(resolvePromise, 200));
+      }
+      throw new Error('TV catalog progress condition timed out');
+    }
+    await waitFor("!!document.querySelector('.menu-settings') && !!document.querySelector('.menu-refresh:not(:disabled)')");
+    await evaluate(`(function () {
+      window.__lcProgressCalls = [];
+      window.__lcProgressSnapshot = null;
+      window.__lcOriginalServiceRequest = webOS.service.request;
+      webOS.service.request = function (uri, options) {
+        var next = Object.assign({}, options);
+        if (uri === 'luna://com.lcplay.tv.guide') {
+          window.__lcProgressCalls.push({ method: options.method, force: Boolean(options.parameters.force) });
+          if (options.method === 'loadCatalog') next.onSuccess = function (response) { window.__lcProgressSnapshot = { id: response.catalogId, total: response.catalog.summary.total, summary: response.catalog.summary }; options.onSuccess(response); };
+        }
+        return window.__lcOriginalServiceRequest.call(webOS.service, uri, next);
+      };
+      document.querySelector('.menu-refresh').click();
+    })()`);
+    const observed = [];
+    let end = Date.now() + 150000;
+    let complete = false;
+    let capturedDownload = false;
+    let capturedTiming = false;
+    const timingSamples = [];
+    while (Date.now() < end) {
+      const state = await evaluate(`(function () {
+        var bar = document.querySelector('.tv-shell > .catalog-progress');
+        var track = bar && bar.querySelector('[role="progressbar"]');
+        var timing = bar && bar.querySelector('.catalog-progress-details small');
+        return { complete: Boolean(document.querySelector('.menu-refresh:not(:disabled)')), title: bar ? bar.querySelector('strong').textContent : null, text: track ? track.getAttribute('aria-valuetext') : null, percent: track ? track.getAttribute('aria-valuenow') : null, timing: timing ? timing.textContent : null, overflow: document.documentElement.scrollWidth > innerWidth || Boolean(bar && bar.scrollWidth > bar.clientWidth) };
+      })()`);
+      if (state.title && observed[observed.length - 1]?.title !== state.title) { observed.push(state); console.log('TV catalog stage: ' + state.title); }
+      if (state.overflow) throw new Error('TV progress has horizontal overflow');
+      if (!capturedDownload && state.title === 'Baixando lista') {
+        const screenshot = await command('Page.captureScreenshot', { format: 'png' }, 10000);
+        await writeFile(resolve(output, 'native-progress-download.png'), Buffer.from(screenshot.data, 'base64'));
+        capturedDownload = true;
+      }
+      if (state.title === 'Baixando lista' && state.timing && timingSamples.length < 10) timingSamples.push(state);
+      if (timingMode && !capturedTiming && state.title === 'Baixando lista' && /[KM]B\/s/.test(state.timing || '')) {
+        if (state.percent === null && /restantes/.test(state.timing)) throw new Error('TV displayed remaining time without a known total');
+        if (state.percent !== null && !/restantes/.test(state.timing)) throw new Error('TV did not display measured remaining time for a known total');
+        if (!/decorridos/.test(state.timing)) throw new Error('TV elapsed time was missing');
+        const screenshot = await command('Page.captureScreenshot', { format: 'png' }, 10000);
+        await writeFile(resolve(output, 'native-download-timing.png'), Buffer.from(screenshot.data, 'base64'));
+        timingSamples.push(state);
+        capturedTiming = true;
+        console.log('TV download timing: ' + state.timing + (state.percent === null ? ' (provider total unavailable)' : ''));
+      }
+      if (state.complete) { complete = true; break; }
+      await new Promise((resolvePromise) => setTimeout(resolvePromise, 200));
+    }
+    if (!complete || !observed.some((entry) => entry.title === 'Baixando lista')) throw new Error('Real TV download progress not observed or catalog failed');
+    if (timingMode && !capturedTiming) throw new Error('Measured download timing was not observed on the TV');
+    const initial = await evaluate("window.__lcProgressSnapshot");
+    if (!initial?.total) throw new Error('TV catalog did not load');
+    const sections = [];
+    for (const section of ['movies', 'series']) {
+      await evaluate(`document.querySelector('.menu-${section}').click()`);
+      await waitFor("!document.querySelector('.tv-shell > .catalog-progress') && !!document.querySelector('.poster-card')");
+      const details = await evaluate("({ mounted: document.querySelectorAll('.poster-card').length, sameCatalog: window.__lcProgressSnapshot.id === " + JSON.stringify(initial.id) + ", heading: document.querySelector('.catalog-heading').textContent })");
+      if (!details.sameCatalog) throw new Error('Opening a section unexpectedly reimported the catalog');
+      sections.push({ section, ...details });
+      await evaluate("window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', keyCode: 461, bubbles: true, cancelable: true }))");
+      await waitFor("!!document.querySelector('.menu-settings')");
+      const navigationEnd = await evaluate("window.__lcProgressCalls.length");
+      await evaluate(`document.querySelector('.menu-${section}').click()`);
+      await waitFor("!!document.querySelector('.poster-card') && !document.querySelector('.tv-shell > .catalog-progress')");
+      if (await evaluate("window.__lcProgressCalls.length") !== navigationEnd) throw new Error('Repeat navigation did not reuse the memory cache');
+      await evaluate("window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', keyCode: 461, bubbles: true, cancelable: true }))");
+      await waitFor("!!document.querySelector('.menu-settings')");
+      console.log('TV ' + section + ': complete catalog, same native snapshot and cached repeat navigation passed.');
+    }
+    const final = await fingerprint();
+    if (JSON.stringify(before) !== JSON.stringify(final)) throw new Error('TV activation/settings changed during progress test');
+    const calls = await evaluate("window.__lcProgressCalls");
+    if (calls.filter((entry) => entry.method === 'loadCatalog' && entry.force).length !== 1 || !calls.some((entry) => entry.method === 'catalogProgress')) throw new Error('Native import/progress calls did not match expectations');
+    results.push({ physicalTv: true, activationPreserved: true, observedStages: observed, timingVerified: capturedTiming, timingSamples, realSummary: initial.summary, sections, forcedImports: 1, cacheReused: true, physicalRemote: 'NOT_TESTED', sixHourSession: 'NOT_TESTED' });
+    await evaluate("webOS.service.request = window.__lcOriginalServiceRequest; delete window.__lcOriginalServiceRequest; delete window.__lcProgressCalls; delete window.__lcProgressSnapshot");
+    console.log('TV native progress and cache verification passed; original Home is ready.');
+  } else if (supportMode) {
+    console.log('Checking offline support documents in the installed production package; activation is not modified.');
+    async function waitFor(expression, timeoutMs = 120000) {
+      const end = Date.now() + timeoutMs;
+      while (Date.now() < end) {
+        if (await evaluate(expression)) return;
+        await new Promise((resolvePromise) => setTimeout(resolvePromise, 250));
+      }
+      const state = await evaluate("({hasToken: Boolean(localStorage.getItem('lc_play_device_token')), heading: document.querySelector('h1') ? document.querySelector('h1').textContent : null, focusLabel: document.activeElement.textContent.slice(0, 80), home: Boolean(document.querySelector('.menu-settings')), settings: Boolean(document.querySelector('.settings-screen')), live: Boolean(document.querySelector('.live-screen'))})");
+      throw new Error('TV support UI condition timed out: ' + JSON.stringify(state));
+    }
+    await evaluate("if (document.querySelector('.settings-screen') || document.querySelector('.live-screen') || document.querySelector('.catalog-screen')) document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { keyCode: 461, bubbles: true, cancelable: true }))");
+    await waitFor("!!document.querySelector('.menu-settings')");
+    await evaluate("window.__lcSupportOriginalToken = localStorage.getItem('lc_play_device_token'); document.querySelector('.menu-settings').click()");
+    await waitFor("!!document.querySelector('.settings-nav')");
+    await evaluate("Array.from(document.querySelectorAll('.settings-nav button')).find(function (button) { return button.textContent.includes('Suporte e documentos'); }).click()");
+    await waitFor("!!document.querySelector('.support-document-actions')");
+    await command('Network.emulateNetworkConditions', { offline: true, latency: 0, downloadThroughput: 0, uploadThroughput: 0 });
+    const checks = [];
+    for (const label of ['Suporte', 'Privacidade', 'Termos']) {
+      await evaluate(`(function () { var trigger = Array.from(document.querySelectorAll('.support-document-actions button')).find(function (button) { return button.textContent === ${JSON.stringify(label)}; }); trigger.focus(); trigger.click(); })()`);
+      await waitFor("!!document.querySelector('.support-reader')");
+      await waitFor("document.activeElement === document.querySelector('.support-reader [aria-label=\"Voltar\"]')", 10000);
+      const details = await evaluate("({title: document.querySelector('#support-document-title').textContent, hasContact: document.querySelector('.support-reader-content').textContent.includes('suportelcplay@gmail.com'), overflow: document.documentElement.scrollWidth > innerWidth, fontSize: getComputedStyle(document.querySelector('.support-reader-content')).fontSize})");
+      if (!details.hasContact || details.overflow) throw new Error('TV support content or layout failed');
+      if (label === 'Privacidade') {
+        await evaluate("document.querySelector('.support-reader-content').focus(); document.querySelector('.support-reader-content').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }))");
+        if (!await evaluate("document.querySelector('.support-reader-content').scrollTop > 0")) throw new Error('TV support scroll failed');
+        const screenshot = await command('Page.captureScreenshot', { format: 'png' }, 10000);
+        await writeFile(resolve(output, 'native-support-privacy.png'), Buffer.from(screenshot.data, 'base64'));
+      }
+      await evaluate("document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { keyCode: 461, bubbles: true, cancelable: true }))");
+      await waitFor("!document.querySelector('.support-reader')");
+      await waitFor(`!!document.querySelector('.settings-screen') && document.activeElement.textContent === ${JSON.stringify(label)}`, 10000);
+      checks.push({ label, ...details, offline: true, scriptedBack: true });
+    }
+    await command('Network.emulateNetworkConditions', { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
+    const activationPreserved = await evaluate("localStorage.getItem('lc_play_device_token') === window.__lcSupportOriginalToken && Boolean(window.__lcSupportOriginalToken)");
+    if (!activationPreserved) throw new Error('TV activation unexpectedly changed');
+    await evaluate("document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { keyCode: 461, bubbles: true, cancelable: true })); delete window.__lcSupportOriginalToken");
+    await waitFor("!!document.querySelector('.menu-settings')");
+    results.push({ checks, activationPreserved, nativeExitPopup: 'NOT_TESTED', physicalRemote: 'NOT_TESTED' });
+    console.log('TV support: three offline documents, scrolling, scripted Back, focus and original activation passed. Physical remote and system exit popup remain pending.');
+  } else if (reviewMode) {
+    console.log('Testing the public owned QA fixture on the C1 with a temporary source response; no production device records are changed.');
+    async function waitFor(expression, timeoutMs = 120000) {
+      const end = Date.now() + timeoutMs;
+      while (Date.now() < end) {
+        if (await evaluate(expression)) return;
+        await new Promise((resolvePromise) => setTimeout(resolvePromise, 250));
+      }
+      throw new Error('Owned QA TV condition timed out');
+    }
+    async function home() {
+      for (let index = 0; index < 4; index++) {
+        if (await evaluate("!!document.querySelector('.menu-settings')")) return;
+        await evaluate("window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', keyCode: 461, bubbles: true, cancelable: true }))");
+        await new Promise((resolvePromise) => setTimeout(resolvePromise, 250));
+      }
+      await waitFor("!!document.querySelector('.menu-settings')");
+    }
+    await waitFor("!!document.querySelector('.menu-settings')");
+    await waitFor("!!document.querySelector('.menu-refresh:not(:disabled)')");
+    console.log('C1 original Home ready; starting temporary owned QA import.');
+    const result = { physicalTv: true, reviewerActivationTest: false, sections: [], channels: [] };
+    await evaluate(`(async function () {
+      var api = 'https://api-lcplay.thxtech.site';
+      window.__lcReviewToken = localStorage.getItem('lc_play_device_token');
+      window.__lcReviewCount = document.querySelector('.menu-live .menu-count').textContent;
+      var response = await fetch(api + '/api/v1/device/media/source', { headers: { Authorization: 'Bearer ' + window.__lcReviewToken } });
+      if (!response.ok) throw new Error('Guide source unavailable');
+      window.__lcReviewOriginalSource = (await response.json()).sourceId;
+      var source = { sourceId: 'owned-qa-tv-session', revision: 'owned-qa-6daa307', source: { id: 'owned-qa-tv-session', name: 'LC PLAY QA - conteúdo técnico próprio', type: 'M3U' }, sourceUrl: 'https://lcplay.thxtech.site/playlist.m3u', epgUrl: 'https://lcplay.thxtech.site/epg.xml', providerApiUrl: null };
+      window.__lcEpgOriginalFetch = window.fetch;
+      window.fetch = function (address, init) {
+        return window.__lcEpgOriginalFetch.call(window, address, init).then(function (response) {
+          if (typeof address === 'string' && (address === api + '/api/v1/device/media/source' || address === api + '/api/v1/device/epg/source') && response.ok) return new Response(JSON.stringify(source), { status: 200, headers: { 'Content-Type': 'application/json' } });
+          return response;
+        });
+      };
+      document.querySelector('.menu-refresh').click();
+    })()`);
+    await waitFor("!!document.querySelector('.menu-refresh:not(:disabled)') && document.querySelector('.menu-live .menu-count').textContent === '2'");
+    console.log('Owned QA native catalog loaded: two channels; checking playback and XMLTV.');
+    for (const section of ['live', 'movies', 'series']) {
+      await evaluate(`document.querySelector('.menu-${section}').click()`);
+      await waitFor(section === 'live' ? "document.querySelectorAll('.live-channel-pick').length === 2" : section === 'movies' ? "document.querySelectorAll('.poster-card').length === 2" : "document.querySelectorAll('.poster-card').length === 1");
+      if (section === 'live') {
+        for (const label of ['LC PLAY QA - clipe MP4', 'LC PLAY QA - clipe HLS']) {
+          await evaluate(`Array.from(document.querySelectorAll('.live-channel-pick')).find(function (button) { return button.querySelector('strong').textContent === ${JSON.stringify(label)}; }).click()`);
+          await waitFor("!!document.querySelector('.live-preview video') && document.querySelector('.live-preview video').readyState >= 3", 60000);
+          await waitFor("!!document.querySelector('.live-now h2') && document.querySelector('.live-now h2').textContent.includes('Padrões de teste LC PLAY')", 60000);
+          await evaluate("!!(window.__lcReviewVideo = document.querySelector('.live-preview video'))");
+          await evaluate(`Array.from(document.querySelectorAll('.live-channel-pick')).find(function (button) { return button.querySelector('strong').textContent === ${JSON.stringify(label)}; }).click()`);
+          const details = await evaluate("(function () { var video = document.querySelector('.live-preview video'); return { sameVideo: video === window.__lcReviewVideo, fullscreen: Boolean(document.querySelector('.live-preview.is-fullscreen')), epgOverlay: Boolean(document.querySelector('.live-preview.is-fullscreen .live-programme')), width: video.videoWidth, height: video.videoHeight, paused: video.paused, muted: video.muted, error: video.error ? video.error.code : null }; })()");
+          if (!details.sameVideo || !details.fullscreen || details.epgOverlay || details.paused || details.muted || details.error || details.width !== 1280) throw new Error('Owned QA playback or fullscreen failed');
+          result.channels.push({ label, ...details, epg: 'AVAILABLE' });
+          console.log(`Owned QA ${label}: video, audio state, XMLTV and same-video fullscreen passed.`);
+          await evaluate("window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', keyCode: 461, bubbles: true, cancelable: true }))");
+          await waitFor("!document.querySelector('.live-preview.is-fullscreen')");
+        }
+      }
+      try {
+        const screenshot = await command('Page.captureScreenshot', { format: 'png' }, 10000);
+        await writeFile(resolve(output, `native-review-${section}.png`), Buffer.from(screenshot.data, 'base64'));
+      } catch { console.log(`Owned QA ${section}: TV screenshot unavailable; playback checks remain separate.`); }
+      if (section === 'movies' || section === 'series') {
+        await evaluate("document.querySelector('.poster-card').click()");
+        if (section === 'series') {
+          await waitFor("document.querySelectorAll('.episode-grid button').length === 2");
+          result.episodes = 2;
+          await evaluate("document.querySelector('.episode-grid button').click()");
+        }
+        await waitFor("!!document.querySelector('.stream-player video') && document.querySelector('.stream-player video').readyState >= 3", 60000);
+        const video = await evaluate("(function () { var video = document.querySelector('.stream-player video'); return { width: video.videoWidth, height: video.videoHeight, paused: video.paused, muted: video.muted, error: video.error ? video.error.code : null }; })()");
+        if (video.paused || video.muted || video.error || video.width !== 1280) throw new Error('Owned QA movie or episode playback failed');
+        result.sections.push({ section, ...video });
+      }
+      await home();
+      console.log(`Owned QA ${section} passed on C1.`);
+    }
+    const original = await evaluate("({sourceId: window.__lcReviewOriginalSource, count: window.__lcReviewCount, hasToken: localStorage.getItem('lc_play_device_token') === window.__lcReviewToken})");
+    if (!original.hasToken) throw new Error('TV activation unexpectedly changed');
+    await evaluate("window.fetch = window.__lcEpgOriginalFetch; delete window.__lcEpgOriginalFetch; delete window.__lcReviewToken; delete window.__lcReviewCount; delete window.__lcReviewOriginalSource; delete window.__lcReviewVideo; document.querySelector('.menu-refresh').click()");
+    console.log('Owned QA session complete; restoring the original native catalog.');
+    await waitFor(`!!document.querySelector('.menu-refresh:not(:disabled)') && document.querySelector('.menu-live .menu-count').textContent === ${JSON.stringify(original.count)}`, 150000);
+    result.originalSourceRestored = await evaluate(`(async function () { var response = await fetch('https://api-lcplay.thxtech.site/api/v1/device/media/source', { headers: { Authorization: 'Bearer ' + localStorage.getItem('lc_play_device_token') } }); return response.ok && (await response.json()).sourceId === ${JSON.stringify(original.sourceId)}; })()`);
+    if (!result.originalSourceRestored) throw new Error('Original source was not restored');
+    results.push(result);
+    console.log('C1 owned QA passed: native M3U, two channels MP4/HLS, XMLTV, fullscreen, two movies, one series/two episodes. Original source and catalog restored. Reviewer-code activation on a separate TV remains pending.');
+  } else if (catalogMode) {
     console.log('Checking direct M3U import and catalogs in the installed LC PLAY, without backend catalog access.');
     const result = await evaluate(`(async function () {
       var token = localStorage.getItem('lc_play_device_token');
@@ -393,17 +655,20 @@ try {
     }
   }
   const report = { testedAt: new Date().toISOString(), device, transport: 'webOS JS service / Node http(s)', providerBrowserRequests, providerGuideBrowserRequests, results };
-  const reportName = catalogMode ? 'native-catalog-report.json' : parentalMode ? 'native-parental-report.json' : nativeMode ? 'native-epg-report.json' : process.env.LG_NETWORK_GUIDE_API === '1' ? 'guide-api-report.json' : process.env.LG_NETWORK_SOURCE_URL ? (process.env.LG_NETWORK_EPG_ONLY === '1' ? 'extra-epg-report.json' : 'extra-source-report.json') : process.env.LG_NETWORK_EPG_ONLY === '1' ? 'epg-retry-report.json' : process.env.LG_NETWORK_FULL_ONLY === '1' ? 'full-report.json' : 'report.json';
+  const reportName = stateMode ? 'native-state-report.json' : progressMode ? timingMode ? 'native-download-timing-report.json' : 'native-progress-report.json' : reviewMode ? 'native-review-report.json' : supportMode ? 'native-support-report.json' : catalogMode ? 'native-catalog-report.json' : parentalMode ? 'native-parental-report.json' : nativeMode ? 'native-epg-report.json' : process.env.LG_NETWORK_GUIDE_API === '1' ? 'guide-api-report.json' : process.env.LG_NETWORK_SOURCE_URL ? (process.env.LG_NETWORK_EPG_ONLY === '1' ? 'extra-epg-report.json' : 'extra-source-report.json') : process.env.LG_NETWORK_EPG_ONLY === '1' ? 'epg-retry-report.json' : process.env.LG_NETWORK_FULL_ONLY === '1' ? 'full-report.json' : 'report.json';
   await writeFile(resolve(output, reportName), JSON.stringify(report, null, 2));
   try {
     const screenshot = await command('Page.captureScreenshot', { format: 'png' }, 10000);
-    const imageName = catalogMode ? 'native-catalog.png' : parentalMode ? 'native-parental.png' : nativeMode ? 'native-epg.png' : process.env.LG_NETWORK_SOURCE_URL ? (process.env.LG_NETWORK_EPG_ONLY === '1' ? 'extra-epg.png' : 'extra-source.png') : 'lg-network-service.png';
+    const imageName = stateMode ? 'native-state.png' : progressMode ? 'native-progress-restored.png' : reviewMode ? 'native-review-restored.png' : supportMode ? 'native-support.png' : catalogMode ? 'native-catalog.png' : parentalMode ? 'native-parental.png' : nativeMode ? 'native-epg.png' : process.env.LG_NETWORK_SOURCE_URL ? (process.env.LG_NETWORK_EPG_ONLY === '1' ? 'extra-epg.png' : 'extra-source.png') : 'lg-network-service.png';
     await writeFile(resolve(output, imageName), Buffer.from(screenshot.data, 'base64'));
   } catch { console.log('TV screenshot unavailable; the network report was saved.'); }
   if ((!nativeMode && providerBrowserRequests.length) || providerGuideBrowserRequests.length) throw new Error('Unexpected browser guide network activity');
   console.log(`Report: ${resolve(output, reportName)}`);
 } finally {
   if (nativeMode && debuggerSocket?.readyState === WebSocket.OPEN && command) {
+    if (supportMode) {
+      try { await command('Network.emulateNetworkConditions', { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 }, 10000); } catch { /* Always restore networking after the offline test. */ }
+    }
     try { await command('Runtime.evaluate', { expression: "if (window.__lcOriginalServiceRequest) { webOS.service.request = window.__lcOriginalServiceRequest; delete window.__lcOriginalServiceRequest; } if (window.__lcEpgOriginalFetch) { window.fetch = window.__lcEpgOriginalFetch; delete window.__lcEpgOriginalFetch; location.reload(); }" }, 10000); } catch { /* Closing the debugger must not retain a network mock. */ }
   }
   if (debuggerSocket) debuggerSocket.close();

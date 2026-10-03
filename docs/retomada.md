@@ -2,7 +2,187 @@
 
 Estado iniciado em 30/09/2026 e atualizado em 03/10/2026. Repositório: https://github.com/frostx25/LC-PLAY.git.
 
-## Ponto de parada: preparacao final LG (03/10/2026)
+## Instalacao autorizada na C1: dados de tempo do download (03/10/2026)
+
+O proprietario autorizou instalar a estimativa. Ultimo pacote validado e
+instalado `com.lcplay.tv` `0.1.0`, SHA-256:
+`599e46def91f51765e58d7cea99ccc86a1977067d4584358e46be30345a045d0`.
+API publica HTTPS mantida; sem deploy na VM, commit/push ou envio a LG.
+
+- Preservada a versao sem estimativa como rollback em
+  `artifacts/lg-network-validation/rollback/com.lcplay.tv_before-timing_0.1.0_all.ipk`.
+- Primeiro teste detectou parada da consulta de progresso apos uma
+  tentativa. Aumentada tolerancia de 2 para 8 segundos, com ate tres
+  falhas consecutivas antes de desistir; sem consultas simultaneas e sem
+  interromper importacao. Teste adicional cobre falha seguida de resposta
+  com demora maior que 2 segundos. 38 testes LG passaram; lint e build
+  de producao aprovados. Nova instalacao realizada com esse ajuste.
+- `LG_NATIVE_PROGRESS=1 LG_PROGRESS_REQUIRE_TIMING=1` no diagnostico
+  passou na C1: velocidade e tempo decorrido medidos no download real,
+  indexacao, canais e catalogos completos de filmes/series pelo mesmo
+  snapshot; segunda visita em cache e Home sem nova importacao.
+- A fonte atual NAO informa tamanho total. TV mostrou, por exemplo,
+  `54,3 KB/s` e `7 s decorridos`, sem inventar restante/percentual.
+  Estimativa com tamanho conhecido passou no teste local com HTTP real,
+  mas nao foi testada fisicamente com outra fonte na C1 nesta etapa.
+- Fingerprints antes/depois confirmaram token, favoritos/configuracoes,
+  identidade/status/validade e fonte iguais. TV deixada na Home original.
+  Relatorio `native-download-timing-report.json` e captura
+  `native-download-timing.png` em `artifacts/lg-network-validation`.
+- Nenhum teste de seis horas, standby, outros modelos ou controle
+  fisico feito nesta etapa. QA completo da versao final continua pendente.
+
+## Implementacao anterior: estimativa de download (03/10/2026)
+
+Depois da instalacao abaixo, o proprietario pediu tempo/quantidade restante.
+Implementados localmente MB restantes, velocidade media medida, tempo
+decorrido e estimativa aproximada, calculada com bytes de transporte e
+tamanho informado pela fonte. Sem tamanho total, mostrar somente bytes,
+velocidade e tempo decorrido, SEM inventar percentual ou tempo restante.
+Durante os primeiros 2 segundos calibra a velocidade; sem novos dados por
+8 segundos, interrompe a estimativa e informa "Aguardando dados".
+Na implementacao inicial era somente LOCAL. Posteriormente instalada
+sob autorizacao e validada conforme checkpoint acima; VM/Git inalterados.
+37 testes LG, lint e build:tv passaram. Verificacao local no Edge headless
+passou em 1920x1080 com tamanho conhecido/ETA e 1280x720 com transferencia
+chunked sem previsao inventada, sem sobrepor a Home; tambem revalidou
+cache, navegacao, mudanca de fonte e atualizacao manual. Capturas/relatorio
+em `artifacts/lg-progress-validation`. IPK de producao atual corresponde
+ao ultimo hash validado acima; nao usar os hashes dos checkpoints antigos.
+
+## Instalacao autorizada na C1: progresso e cache (03/10/2026)
+
+O proprietario pediu instalar. Pacote `com.lcplay.tv` versao `0.1.0`
+regerado com a API HTTPS publica e instalado SOBRE o mesmo ID, sem
+desinstalar, na C1 `192.168.15.4`. SHA-256 instalado:
+`40911f3d8fde6e56b3f90b9822195de4f9d7a503ce381e60b174d120d7df9993`.
+Sem alteracao na VM, novo commit/push ou envio a LG.
+
+- IPK anterior preservado em
+  `artifacts/lg-network-validation/rollback/com.lcplay.tv_before-progress_0.1.0_all.ipk`.
+- `LG_NATIVE_STATE=1` antes e `LG_NATIVE_PROGRESS=1` depois, com
+  `node scripts/test-lg-network-service.mjs`: fingerprints confirmaram
+  token, favoritos/configuracoes locais, aparelho, validade e fonte iguais.
+  Nenhum segredo bruto salvo no relatorio; PIN nao foi alterado.
+- Download real da fonte, indexacao e carregamento de canais observados
+  na TV. Filmes e series carregaram completos pelo MESMO snapshot; segunda
+  visita reutilizou o cache em memoria e voltar a Home nao fez importacao.
+  Uma unica importacao forcada de teste, com consultas `catalogProgress`.
+- Relatorio e capturas ignorados em `artifacts/lg-network-validation`,
+  arquivos `native-progress-report.json`, `native-progress-download.png`
+  e `native-progress-restored.png`. TV deixada na Home original.
+- Este teste nao inclui sessao real de seis horas, standby, todos os modelos
+  ou controle remoto fisico. Repetir QA completo no pacote final da loja.
+- Pedido seguinte: acrescentar estimativa de tempo/quantidade restante.
+  Essa nova alteracao deve ser identificada como LOCAL ate nova instalacao;
+  o hash acima corresponde ao progresso sem estimativa de tempo restante.
+
+## Atualizacao local: progresso e cache do catalogo LG (03/10/2026)
+
+Alteracoes SOMENTE locais. Nao houve deploy, commit/push, instalacao na C1
+ou envio a LG nesta etapa. A TV instalada ainda usa o pacote/hash do
+checkpoint abaixo; estes testes nao validam fisicamente a nova versao.
+
+- Progresso real no player: consulta da fonte, bytes recebidos da M3U,
+  indexacao do arquivo, quantidade de canais/filmes/series e episodios
+  lidos. Percentual por etapa somente quando o total e conhecido; fontes
+  sem Content-Length usam bytes e indicador indeterminado. Com gzip,
+  o percentual usa bytes de transporte, nao o tamanho descompactado.
+- Servico nativo expoe `catalogProgress` sem URLs, tokens ou credenciais.
+  Consulta a cada 500ms durante importacao, sem consultas concorrentes;
+  navegacao/cancelamento/finalizacao encerram a consulta e ignoram respostas
+  atrasadas. Inclusao desse metodo deve entrar na revisao ACG pendente.
+- Validade da M3U/indexes passou de 5 minutos para 6 horas. Trocar tela ou
+  voltar a Home reaproveita o cache; nao renova a idade do arquivo.
+  Atualizar manualmente ainda forca novo download. A cada 5 minutos, com
+  o app visivel, verifica-se a fonte/revisao autorizada pela API; sem
+  mudanca e com cache valido, nao baixa nem rele os arquivos. Mudanca de
+  fonte/URL/EPG no painel invalida o cache na proxima verificacao.
+- Os indices ficam em `os.tmpdir()/com.lcplay.tv.catalog`; podem sobreviver
+  ao encerramento/reinicio do servico, mas NAO sao armazenamento permanente
+  garantido pelo sistema. Desconectar apaga o cache. Videos continuam em
+  streaming; nao existe download offline dos filmes/episodios.
+- EPG inalterado: cache em memoria por 5 minutos quando disponivel,
+  30 segundos quando indisponivel; consulta por canal, podendo reutilizar
+  a programacao ja apresentada ate a troca de programa. Reiniciar o
+  servico perde esse cache. Nao ha download automatico de EPG na Home.
+- `pnpm --filter @lc-play/lg-webos test`: 36 testes passaram; typecheck,
+  lint e build:tv aprovados. Testes incluem cache em disco apos 1 hora,
+  vencimento em 6 horas, recarregamento manual, gzip/transferencia chunked,
+  contagens completas, cancelamento e respostas atrasadas.
+- `node scripts/verify-lg-catalog-progress.mjs`: teste local com servico
+  nativo real do Node, HTTP local e ponte Luna simulada no Edge headless.
+  Validou download, 250/500 filmes/episodios, cache ao voltar a Home,
+  verificacao sem reimportacao, mudanca de revisao e atualizacao manual;
+  layouts sem sobreposicao em 1920x1080 e 1280x720. Relatorio/capturas
+  ignorados em `artifacts/lg-progress-validation`.
+- `node scripts/verify-lg-support.mjs` e 9 testes de publicacao passaram:
+  documentos offline/Back/foco e paginas legais continuam funcionando.
+- Proximo teste: empacotar novamente e instalar na C1, COM autorizacao,
+  conferir progresso em fonte grande, navegacao e cache em sessao longa.
+  Nao usar o IPK anterior como prova desta alteracao nem enviar a LG antes
+  de repetir a validacao fisica e as verificacoes finais pendentes.
+
+## Retomada: deploy LG autorizado e concluido (03/10/2026)
+
+O proprietario confirmou nova autorizacao para atualizar **somente o LC
+PLAY**. O deploy do commit `6daa307` foi concluido; nao houve envio a LG
+nem novo commit/push nesta retomada. Alteracoes de verificacao e documentos
+permanecem locais. LG continua antes de Roku.
+
+- Backup privado da configuracao, fonte e banco em
+  `/opt/lc-play/backups/lg-release-6daa307-20261003T152639Z`; imagem anterior
+  da API preservada como `lc-play-api:rollback-6daa307`.
+- Recriados somente API e novo `lg-public`; painel, PostgreSQL e containers
+  dos outros projetos mantiveram seus IDs. Nginx validado antes do reload.
+  Comparacao privada confirmou preservacao da fonte, token/PIN, validade e
+  ativacao da C1. Segredos de `.env.production` nao foram alterados.
+  Removida escrita publica dos diretorios LC PLAY; raiz/deploy `755`,
+  ambiente `600` e backups `700`, todos pertencentes a root.
+- Suporte, privacidade e termos publicados em `https://lcplay.thxtech.site/legal/`.
+  Fonte propria em `/playlist.m3u` e EPG em `/epg.xml`, com MP4/HLS tecnicos.
+  `scripts/test-lg-public-production.mjs`: 18 verificacoes aprovadas,
+  inclusive MP4 Range 206, caminhos privados 404 e API protegida 401.
+- Cinco dispositivos LG QA e fonte tecnica propria provisionados. Chaves
+  de uso unico, validade de 30 dias, arquivo PRIVADO ignorado:
+  `artifacts/lg-submission/reviewer-access.private.json`. Nao compartilhar
+  publicamente nem inserir no pacote. Confirmar a validade antes do envio.
+- `scripts/test-lg-review-production.mjs`: teste extra isolado passou em
+  producao, incluindo corrida de uso unico, suspensao, vencimento, renovacao,
+  fonte ausente e revogacao. Aparelho temporario removido; C1 e cinco chaves
+  destinadas a LG preservados. Renovar nao desfaz suspensao administrativa.
+  Esse teste de API nao substitui a ativacao em uma TV de avaliacao.
+- Painel revalidado em desktop/mobile, login/logout e cookie seguro; seis
+  aparelhos e duas fontes apos provisionamento. API e publicacao saudaveis.
+- IP atual da C1 informado pelo proprietario: `192.168.15.4`; perfil CLI
+  `lg-c1` atualizado. `192.168.15.5` atualmente pertence ao computador.
+  Novo IPK `0.1.0` instalado sobre o mesmo ID, sem desinstalar, SHA-256
+  `952e0c57f12e4a989f01402404c5202ffd768132530b71254d4b57bd21a496e3`.
+- `LG_NATIVE_SUPPORT=1 node scripts/test-lg-network-service.mjs` passou
+  no pacote instalado: tres documentos offline, fonte 28px sem overflow,
+  rolagem, Back por eventos de teclado no elemento focado, restauracao do
+  foco e token intacto. Relatorio/capturas em `artifacts/lg-network-validation`.
+  Em seguida o usuario confirmou rolagem com setas, Back para Ajustes e
+  popup nativo de saida na Home com o controle fisico. Nao generalizar
+  esse resultado para todas as telas, Magic Remote ou outros modelos.
+- `LG_NATIVE_REVIEW=1` passou na C1 com substituicao temporaria da resposta
+  de fonte somente na sessao de teste: importacao nativa da M3U propria,
+  dois canais MP4/HLS, XMLTV, mesmo video em tela cheia, catalogo de dois
+  filmes e uma serie/dois episodios, reproducao de um filme e um episodio.
+  Usuario confirmou imagem colorida e tom de audio na TV. Capturas do
+  inspetor registram a interface, mas nao mostraram a imagem do video.
+  Fonte e catalogo originais restaurados e verificados ao terminar; nenhum
+  cadastro da C1 foi alterado. Relatorio `native-review-report.json` em
+  `artifacts/lg-network-validation`. Nao e prova de ativacao com chave
+  de avaliacao em outra TV, pois a C1 manteve sua propria sessao.
+- Proximos testes: ativacao fisica de avaliacao em dispositivo separado,
+  Magic Remote, Home/standby, retomada e sessao prolongada; armazenamento
+  seguro do token, ACG e avisos
+  de licencas continuam pendentes. Finalizar documentos OFICIAIS somente
+  com resultados reais, confirmar pais/modelos, depois enviar no Seller Lounge.
+  Controle da aba do usuario continua indisponivel nas ferramentas desta sessao.
+
+## Checkpoint anterior: preparacao final LG (03/10/2026)
 
 O proprietario pediu salvar no Git e continuar amanha. **Finalizar e enviar
 LG antes de iniciar Roku. Nao houve nova publicacao na VM nem envio a LG
